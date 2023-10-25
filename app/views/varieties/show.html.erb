@@ -1,0 +1,10 @@
+<main class="container">
+    <%= link_to sanitize("&larr; Back to Varieties List"), varieties_path %>
+    <div class="header">
+        <h1>
+            <%= @variety.name %>
+        </h1>
+        <div><%= @variety.blossom %></div>
+        <div><%= @variety.foliage %></div>
+    </div>
+</main>

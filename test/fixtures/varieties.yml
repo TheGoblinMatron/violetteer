@@ -1,0 +1,34 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+one:
+  name: Matron's Pink Violet
+  english: 
+  regNum: 999999
+  regDate: 10/21/2023
+  hybridizer: G. Matron
+  blossom: Double pink.
+  foliage: Medium pointed green.
+  habit: Standard
+  addInfo: 
+
+two:
+  name: Matron's Blue Violet
+  english: 
+  regNum: 999998
+  regDate: 10/21/2023
+  hybridizer: G. Matron
+  blossom: Single blue pansy
+  foliage: Crown variegated
+  habit: Miniature
+  addInfo:
+
+three:
+  name: White noid
+  english:
+  regNum:
+  regDate:
+  hybridizer:
+  blossom: Ruffled white star
+  foliage: Glossy heart shaped dark green
+  habit: Standard
+  addInfo:
