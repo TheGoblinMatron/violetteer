@@ -1,3 +1,7 @@
 <div class="variety">
-    <%= link_to variety.name, variety_path(variety) %>
+    <div><%= image_tag "violetIcon-170.png" %></div>
+    <div><%= link_to variety.name, variety_path(variety) %></div>
+    <div class="variety_desc">
+        <%= pretty_desc(variety)  %>
+    </div>
 </div>
