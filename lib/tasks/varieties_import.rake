@@ -1,7 +1,9 @@
+#This thing imports from the "prettified" csv of a subset downloaded out of FC, NOT from the raw db 
+
 require 'csv'
 
 namespace :copy do
-    desc "imports varieties data from csv to postgres"
+    desc "imports varieties data from myplants.csv"
     task :data => :environment do
         def insert_variety
             varieties = []
