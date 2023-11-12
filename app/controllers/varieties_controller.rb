@@ -2,7 +2,7 @@ class VarietiesController < ApplicationController
     before_action :set_variety, only: [:show]
 
     def index
-        @varieties = Variety.all
+        @varieties = Variety.order(:name).page params[:page]
     end
 
     def show
