@@ -20,6 +20,7 @@ module VarietiesHelper
         if not (variety.habit).blank?
             fullDesc << " #{variety.habit}"
         end
+        fullDesc << " (#{variety.recNumFC})"
         return fullDesc
     end
 end

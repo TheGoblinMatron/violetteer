@@ -10,9 +10,20 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2023_10_27_200948) do
+ActiveRecord::Schema[7.0].define(version: 2023_10_31_184045) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
+
+  create_table "fc_photos", force: :cascade do |t|
+    t.string "location"
+    t.string "attribution"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "variety_id", null: false
+    t.string "photoID"
+    t.integer "recNumFC"
+    t.index ["variety_id"], name: "index_fc_photos_on_variety_id"
+  end
 
   create_table "varieties", force: :cascade do |t|
     t.string "name", null: false
@@ -26,6 +37,8 @@ ActiveRecord::Schema[7.0].define(version: 2023_10_27_200948) do
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.date "regDate"
+    t.integer "recNumFC"
   end
 
+  add_foreign_key "fc_photos", "varieties"
 end
