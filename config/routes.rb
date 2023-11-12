@@ -3,5 +3,9 @@ Rails.application.routes.draw do
 
   # Defines the root path route ("/")
   # root "articles#index"
-  resources :varieties
+  resources :varieties do
+    get '/page/:page', action: :index, on: :collection
+  end
+  resources :fc_photos
+
 end

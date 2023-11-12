@@ -7,6 +7,8 @@ gem 'activerecord-import'
 
 gem 'activerecord-copy'
 
+gem 'kaminari'
+
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"
 gem "rails", "~> 7.0.8"
 
