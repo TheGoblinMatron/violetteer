@@ -21,6 +21,9 @@ module VarietiesHelper
             fullDesc << " #{variety.habit}"
         end
         fullDesc << " (#{variety.recNumFC})"
+        if not (variety.fc_photos).blank?
+            fullDesc << " Photos: (#{variety.fc_photos.count})"
+        end
         return fullDesc
     end
 end
