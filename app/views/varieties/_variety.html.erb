@@ -1,5 +1,13 @@
 <div class="variety">
     <div><%= link_to variety.name, variety_path(variety) %></div>
+    <div class="variety_photo"><%=
+        if not (variety.fc_photos).blank?
+          path = variety.fc_photos[0].location
+          if asset_exist?(path)
+            image_tag path
+          end
+        end
+    %></div>
     <div class="variety_desc">
         <%= pretty_desc(variety)  %>
     </div>
