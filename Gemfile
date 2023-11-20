@@ -5,8 +5,13 @@ ruby "3.2.2"
 
 gem 'activerecord-import'
 
+# Probably don't need this aside from initial imports.
+# NTS: Take this out later
 gem 'activerecord-copy'
 
+gem 'simple_form', "~> 5.1.0"
+
+# For pagination
 gem 'kaminari'
 
 # Bundle edge Rails instead: gem "rails", github: "rails/rails", branch: "main"

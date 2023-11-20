@@ -1,8 +1,13 @@
-<div class="fc_photo">
+<div class="photo">
     <div class="picture">
-        <%= image_tag fc_photo.location %>
+        <%=
+          path = fc_photo.location
+          if asset_exist?(path)
+            image_tag path
+          end
+        %>
     </div>
-    <div class="caption">
+    <div class="photo-caption">
         <p><%= fc_photo.attribution %></p>
     </div>
 </div>
