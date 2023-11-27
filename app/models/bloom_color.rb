@@ -1,0 +1,3 @@
+class BloomColor < ApplicationRecord
+
+end
