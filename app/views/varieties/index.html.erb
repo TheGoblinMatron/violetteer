@@ -7,17 +7,28 @@
   <h2>Show only:</h2>
     <div class="color-filter-container">
       <ul>
-        <li>Pink</li>
-        <li>White</li>
-        <li>Blue</li>
-        <li>Lavender</li>
-        <li>Red</li>
+        <li><%= link_to "All",
+                  varieties_path %></li>
+        <li><%= link_to "Pink",
+                  varieties_path(:bloomcolor => 'pink') %></li>
+        <li><%= link_to "White",
+                  varieties_path(:bloomcolor => 'white') %></li>
+        <li><%= link_to "Blue",
+                  varieties_path(:bloomcolor => 'blue') %></li>
+        <li><%= link_to "Lavender",
+                  varieties_path(:bloomcolor => 'lavender') %></li>
+        <li><%= link_to "Red",
+                  varieties_path(:bloomcolor => 'red') %></li>
+        <li><%= link_to "Pink and White", varieties_path(:bloomcolor => 'pink, white') %></li>
       </ul>
     </div>
   </div>
 
+  <%= turbo_frame_tag "varieties_frame" do %>
     <div class="results-container">
-        <%= render @varieties %>
-        <%= paginate @varieties %>
+      <%= render @varieties %>
+      <%== pagy_nav(@pagy, link_extra: 'data-turbo-action="advance"') %>
     </div>
+  <% end %>
+
 </main>
