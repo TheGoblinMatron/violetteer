@@ -12,7 +12,7 @@ Features to be implemented:
 
 Farther future:
 * Add & share user submitted varieties, w/ matching for dedupe
-* Support for better management of international variety names, translations, and alphabet approximation
+* (Priority!) Support for better management of international variety names, translations, and alphabet approximation
 * Add user submitted photos to variety listings (W/ permission)
 * Wish lists
 * Ability to "follow" wishlists of friends
@@ -21,4 +21,6 @@ Farther future:
 * Add ability for hybridizers to "claim" variety page to manage information such as hybrid parentage for possible genetic research data
 
 Heavy influence is taken from Ravelry, in terms of user collection management in a social system
+
+
 
