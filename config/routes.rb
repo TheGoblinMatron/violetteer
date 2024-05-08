@@ -6,6 +6,7 @@ Rails.application.routes.draw do
   resources :varieties do
     get '/page/:page', action: :index, on: :collection
   end
+  resources :bloom_colors
   resources :fc_photos
 
 end

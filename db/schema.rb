@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.0].define(version: 2023_11_26_054706) do
+ActiveRecord::Schema[7.0].define(version: 2023_11_27_064652) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
 
@@ -47,5 +47,16 @@ ActiveRecord::Schema[7.0].define(version: 2023_11_26_054706) do
     t.integer "recNumFC"
   end
 
+  create_table "variety_bloom_colors", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.bigint "variety_id", null: false
+    t.bigint "bloom_color_id", null: false
+    t.index ["bloom_color_id"], name: "index_variety_bloom_colors_on_bloom_color_id"
+    t.index ["variety_id"], name: "index_variety_bloom_colors_on_variety_id"
+  end
+
   add_foreign_key "fc_photos", "varieties"
+  add_foreign_key "variety_bloom_colors", "bloom_colors"
+  add_foreign_key "variety_bloom_colors", "varieties"
 end

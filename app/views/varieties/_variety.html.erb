@@ -1,5 +1,5 @@
 <div class="variety" id="<%= dom_id variety %>">
-    <div><%= link_to variety.name, variety_path(variety), data: { turbo: false } %></div>
+    <div><%= link_to variety.name, variety_path(variety)%></div>
     <div class="variety_photo"><%=
         if not (variety.fc_photos).blank?
           path = variety.fc_photos[0].location
