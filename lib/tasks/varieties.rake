@@ -108,3 +108,10 @@ namespace :varieties do
   end
 
 end
+
+namespace :varieties do
+  desc "Tell me stuff about the bloomcolors"
+  task bloom_color_test: :environment do
+    puts(BloomColor.first.color)
+  end
+end

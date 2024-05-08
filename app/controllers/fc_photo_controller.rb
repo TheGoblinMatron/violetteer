@@ -1,10 +1,6 @@
 class FcPhotosController < ApplicationController
     before_action :set_fc_photo, only: [:show]
 
-    def index
-        @fc_photo = FcPhoto.all
-    end
-
     def show
     end
 
