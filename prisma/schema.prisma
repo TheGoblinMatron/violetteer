@@ -1,0 +1,259 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// BETTER AUTH MODELS
+// These tables are managed by Better Auth for authentication
+// ============================================
+
+/**
+ * User - The authenticated user
+ *
+ * This stores basic profile information. Better Auth creates this
+ * when someone registers. The 'id' is a unique string (not auto-increment)
+ * because Better Auth generates secure random IDs.
+ */
+model User {
+  id            String    @id
+  name          String?
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  isAdmin       Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Better Auth relations
+  sessions Session[]
+  accounts Account[]
+
+  // Your app's relations - connect users to their data
+  lists      List[]
+  photos     PlantPhoto[]
+  reviews    Review[]
+}
+
+/**
+ * Session - Active login sessions
+ *
+ * Each time a user logs in, a Session is created. The 'token' is stored
+ * as an httpOnly cookie in the browser. When a request comes in, Better Auth
+ * looks up the session by token to identify the user.
+ *
+ * You can query this table to see who's logged in!
+ * Try: SELECT * FROM "Session" to see active sessions
+ */
+model Session {
+  id        String   @id
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/**
+ * Account - Links users to authentication providers
+ *
+ * For email/password auth, this stores the hashed password.
+ * If you later add Google/GitHub login, each provider gets its own Account.
+ * One User can have multiple Accounts (email + Google + GitHub).
+ */
+model Account {
+  id                    String    @id
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?   // Hashed password for email/password auth
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+/**
+ * Verification - Email verification and password reset tokens
+ *
+ * When a user requests a password reset or needs to verify their email,
+ * a token is created here. These expire quickly for security.
+ */
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// ============================================
+// YOUR APPLICATION MODELS
+// ============================================
+
+model Plant {
+  id                    Int       @id @default(autoincrement())
+  recNum                Int?
+  name                  String
+  hybridizer            String?
+  habit                 String?
+  regNum                String?
+  regDate               String?
+  blossom               String?
+  foliage               String?
+  altReg                String?
+  vintage               String?
+  engTrans              String?
+  alias                 String?
+  lineage               String?
+  imageUrl              String?
+  description           String?   // Pre-computed: "Name (regNum) MM/DD/YYYY (hybridizer) blossom. foliage. habit."
+
+  // Catalog management
+  isInCatalog           Boolean   @default(false)
+  createdByUserId       String?
+  contributionStatus    String?   // null, 'pending', 'approved', 'rejected'
+
+  // Popularity tracking
+  collectionCount       Int       @default(0)  // Number of users with this plant in their collection
+  lastCollected         DateTime?              // Most recent time someone added to their collection
+  extinctionStatus      String?                // null, 'likely_extinct', 'confirmed_extinct', 'rediscovered'
+
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  listPlants            ListPlant[]
+  userPhotos            PlantPhoto[]
+  reviews               Review[]
+  plantTags             PlantTag[]
+}
+
+model List {
+  id          Int      @id @default(autoincrement())
+  userId      String   // Required - every list belongs to a user
+  name        String
+  description String?
+  color       String?  // Hex color for UI
+  isDefault   Boolean  @default(false)
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listPlants  ListPlant[]
+
+  @@unique([userId, name])  // Same user can't have two lists with same name
+}
+
+model ListPlant {
+  id          Int      @id @default(autoincrement())
+  listId      Int
+  plantId     Int
+  notes       String?  // User's personal/private notes
+  dateAdded   DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  // Relations
+  list        List     @relation(fields: [listId], references: [id], onDelete: Cascade)
+  plant       Plant    @relation(fields: [plantId], references: [id], onDelete: Cascade)
+
+  @@unique([listId, plantId]) // Plant can only be in a list once
+}
+
+model PlantPhoto {
+  id          Int      @id @default(autoincrement())
+  plantId     Int
+  userId      String?  // Who uploaded it (optional - allows anonymous uploads)
+  imageUrl    String
+  caption     String?
+  uploadedAt  DateTime @default(now())
+
+  // Relations
+  plant       Plant    @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model Review {
+  id          Int      @id @default(autoincrement())
+  plantId     Int
+  userId      String?  // Who wrote it (optional - allows anonymous reviews)
+  userName    String?  // Display name (derived from User.name when logged in)
+  rating      Int?     // Optional 1-5 stars
+  title       String?  // e.g., "Easy bloomer!"
+  content     String   // The actual review
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  plant       Plant    @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([plantId, userId]) // One review per user per plant
+}
+
+// ============================================
+// TAG SYSTEM
+// Categorizes plants by attributes like color, bloom type, foliage, etc.
+// ============================================
+
+/**
+ * Tag - A category label that can be applied to plants
+ *
+ * Tags are organized by category (e.g., 'color', 'bloom_type', 'foliage')
+ * and have a display name and optional color for UI rendering.
+ */
+model Tag {
+  id          Int         @id @default(autoincrement())
+  category    String      // e.g., 'color', 'bloom_type', 'foliage', 'habit'
+  name        String      // e.g., 'pink', 'double', 'variegated'
+  displayName String      // e.g., 'Pink', 'Double', 'Variegated'
+  color       String?     // Hex color for UI chip display (e.g., '#FF69B4' for pink)
+  sortOrder   Int         @default(0)  // For ordering tags within a category
+  createdAt   DateTime    @default(now())
+
+  // Relations
+  plantTags   PlantTag[]
+
+  @@unique([category, name])  // Each tag name is unique within its category
+  @@index([category])
+}
+
+/**
+ * PlantTag - Junction table linking plants to tags
+ *
+ * A plant can have multiple tags, and tags can apply to multiple plants.
+ * The 'source' field tracks whether the tag was auto-generated or user-suggested.
+ */
+model PlantTag {
+  id          Int      @id @default(autoincrement())
+  plantId     Int
+  tagId       Int
+  source      String   @default("auto")  // 'auto' (system-generated) or 'user' (suggested)
+  confidence  Float?   // For auto-tags: how confident the match was (0.0-1.0)
+  createdAt   DateTime @default(now())
+
+  // Relations
+  plant       Plant    @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  tag         Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([plantId, tagId])  // A plant can only have each tag once
+  @@index([tagId])
+}

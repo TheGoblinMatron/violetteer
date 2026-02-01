@@ -1,0 +1,45 @@
+{
+  "name": "violetteer",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "server": "nodemon server/index.js",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "generate-test-data": "node prisma/generate-test-data.js",
+    "generate-test-users": "node prisma/generate-test-users.js",
+    "recalculate-popularity": "node prisma/recalculate-popularity.js"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^7.3.6",
+    "@mui/material": "^7.3.6",
+    "@prisma/client": "^6.19.2",
+    "better-auth": "^1.4.17",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "prisma": "^6.19.2",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-router-dom": "^7.10.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "nodemon": "^3.1.11",
+    "vite": "^7.2.4"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  }
+}
