@@ -20,7 +20,7 @@ import {
   Divider,
   CircularProgress,
 } from '@mui/material';
-import { Yard, Add, Person, Logout, Login } from '@mui/icons-material';
+import { Yard, Add, Person, Logout, Login, Settings } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import CreateListDialog from './CreateListDialog.jsx';
 import AuthDialog from './AuthDialog.jsx';
@@ -158,6 +158,15 @@ export default function Layout({ children, lists = [], onCreateList }) {
                       </Box>
                     </MenuItem>
                     <Divider />
+                    <MenuItem
+                      onClick={() => {
+                        handleUserMenuClose();
+                        navigate('/settings');
+                      }}
+                    >
+                      <Settings fontSize="small" sx={{ mr: 1 }} />
+                      Settings
+                    </MenuItem>
                     <MenuItem onClick={handleLogout}>
                       <Logout fontSize="small" sx={{ mr: 1 }} />
                       Sign Out

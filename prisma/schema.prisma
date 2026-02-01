@@ -31,6 +31,22 @@ model User {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
+  // Profile fields
+  displayName      String?            // Public display name
+  bio              String?            // Short bio/description
+  location         String?            // Optional location
+  website          String?            // Personal website URL
+  username         String?   @unique  // URL-friendly identifier (e.g., "violet_lover")
+
+  // Social links
+  socialInstagram  String?            // Instagram username
+  socialFacebook   String?            // Facebook URL
+  socialTwitter    String?            // Twitter/X username
+
+  // Privacy settings
+  profileIsPublic  Boolean   @default(true)   // Whether profile is visible to others
+  showEmail        Boolean   @default(false)  // Show email on public profile
+
   // Better Auth relations
   sessions Session[]
   accounts Account[]
