@@ -25,6 +25,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import CreateListDialog from './CreateListDialog.jsx';
 import AuthDialog from './AuthDialog.jsx';
 import { useAuth } from '../context/AuthContext';
+import { useProfile } from '../hooks/useProfile';
 
 export default function Layout({ children, lists = [], onCreateList }) {
   const navigate = useNavigate();
@@ -33,6 +34,7 @@ export default function Layout({ children, lists = [], onCreateList }) {
 
   // Auth state
   const { user, isAuthenticated, loading, signOut } = useAuth();
+  const { profile } = useProfile();
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
 
@@ -134,7 +136,10 @@ export default function Layout({ children, lists = [], onCreateList }) {
                 <>
                   {/* User Avatar - clickable to open menu */}
                   <IconButton onClick={handleUserMenuOpen}>
-                    <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}>
+                    <Avatar
+                      src={profile?.image}
+                      sx={{ bgcolor: 'primary.main', width: 36, height: 36 }}
+                    >
                       {getUserInitials()}
                     </Avatar>
                   </IconButton>
@@ -147,7 +152,21 @@ export default function Layout({ children, lists = [], onCreateList }) {
                     anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
                   >
-                    <MenuItem disabled sx={{ opacity: 1 }}>
+                    <MenuItem
+                      onClick={() => {
+                        if (profile?.username) {
+                          handleUserMenuClose();
+                          navigate(`/user/${profile.username}`);
+                        }
+                      }}
+                      sx={{
+                        opacity: 1,
+                        cursor: profile?.username ? 'pointer' : 'default',
+                        '&:hover': {
+                          backgroundColor: profile?.username ? undefined : 'transparent',
+                        }
+                      }}
+                    >
                       <Box>
                         <Typography variant="body2" fontWeight="medium">
                           {user?.name || 'User'}

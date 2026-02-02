@@ -32,6 +32,7 @@ import {
   LocationOn,
   Check,
   Close,
+  Groups,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 import { useProfile } from '../hooks/useProfile';
@@ -40,7 +41,7 @@ import AvatarUpload from './AvatarUpload';
 export default function SettingsPage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const { profile, loading, error, saving, updateProfile, checkUsername } = useProfile();
+  const { profile, loading, error, saving, updateProfile, checkUsername, refetch } = useProfile();
 
   // Form state
   const [formData, setFormData] = useState({
@@ -54,6 +55,9 @@ export default function SettingsPage() {
     socialTwitter: '',
     profileIsPublic: true,
     showEmail: false,
+    isAvsaMember: false,
+    localClub: '',
+    otherAffiliation: '',
   });
 
   // Username validation
@@ -84,6 +88,9 @@ export default function SettingsPage() {
         socialTwitter: profile.socialTwitter || '',
         profileIsPublic: profile.profileIsPublic ?? true,
         showEmail: profile.showEmail ?? false,
+        isAvsaMember: profile.isAvsaMember ?? false,
+        localClub: profile.localClub || '',
+        otherAffiliation: profile.otherAffiliation || '',
       });
     }
   }, [profile]);
@@ -169,9 +176,9 @@ export default function SettingsPage() {
             <AvatarUpload
               currentImage={profile?.image}
               displayName={formData.displayName || profile?.name}
-              onUploadSuccess={(newImageUrl) => {
-                // Update local profile state with new image
-                // The profile will be refetched on next load
+              onUploadSuccess={() => {
+                // Refetch profile to get updated image
+                refetch();
               }}
             />
           </Box>
@@ -317,6 +324,53 @@ export default function SettingsPage() {
                 </InputAdornment>
               ),
             }}
+          />
+        </Paper>
+
+        {/* Memberships Section */}
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Memberships & Affiliations
+          </Typography>
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={formData.isAvsaMember}
+                onChange={handleChange('isAvsaMember')}
+              />
+            }
+            label="I am an AVSA member"
+          />
+          <Typography variant="caption" display="block" color="text.secondary" sx={{ ml: 6, mt: -1, mb: 2 }}>
+            African Violet Society of America
+          </Typography>
+
+          <TextField
+            fullWidth
+            label="Local Club"
+            value={formData.localClub}
+            onChange={handleChange('localClub')}
+            placeholder="e.g., Bay Area African Violet Society"
+            margin="normal"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Groups fontSize="small" />
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          <TextField
+            fullWidth
+            label="Other Affiliations"
+            value={formData.otherAffiliation}
+            onChange={handleChange('otherAffiliation')}
+            placeholder="Other plant societies or groups you belong to"
+            margin="normal"
+            multiline
+            rows={2}
           />
         </Paper>
 

@@ -47,6 +47,11 @@ model User {
   profileIsPublic  Boolean   @default(true)   // Whether profile is visible to others
   showEmail        Boolean   @default(false)  // Show email on public profile
 
+  // Memberships/Affiliations
+  isAvsaMember     Boolean   @default(false)  // AVSA member
+  localClub        String?                    // Local violet club name
+  otherAffiliation String?                    // Other groups/organizations
+
   // Better Auth relations
   sessions Session[]
   accounts Account[]

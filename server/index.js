@@ -104,6 +104,9 @@ app.get('/api/users/me', requireAuth, async (req, res) => {
         socialTwitter: true,
         profileIsPublic: true,
         showEmail: true,
+        isAvsaMember: true,
+        localClub: true,
+        otherAffiliation: true,
         createdAt: true,
       },
     });
@@ -129,7 +132,8 @@ app.put('/api/users/me', requireAuth, async (req, res) => {
     const allowedFields = [
       'displayName', 'bio', 'location', 'website', 'username',
       'socialInstagram', 'socialFacebook', 'socialTwitter',
-      'profileIsPublic', 'showEmail'
+      'profileIsPublic', 'showEmail',
+      'isAvsaMember', 'localClub', 'otherAffiliation'
     ];
 
     const updateData = {};
@@ -346,6 +350,31 @@ app.get('/api/users/:username', optionalAuth, async (req, res) => {
       return res.status(404).json({ error: 'Profile not found' });
     }
 
+    // Calculate stats for the profile
+    const [totalPlantsResult, photosContributed, reviewsWritten] = await Promise.all([
+      // Count unique plants across all user's lists
+      prisma.listPlant.findMany({
+        where: { list: { userId: user.id } },
+        select: { plantId: true },
+        distinct: ['plantId']
+      }),
+      // Photos contributed
+      prisma.plantPhoto.count({
+        where: { userId: user.id }
+      }),
+      // Reviews written
+      prisma.review.count({
+        where: { userId: user.id }
+      })
+    ]);
+
+    const stats = {
+      totalPlants: totalPlantsResult.length,
+      publicLists: user.lists.length,
+      photosContributed,
+      reviewsWritten
+    };
+
     // Return public-safe fields only
     res.json({
       id: user.id,
@@ -360,6 +389,10 @@ app.get('/api/users/:username', optionalAuth, async (req, res) => {
       socialTwitter: user.socialTwitter,
       email: user.showEmail ? user.email : undefined,
       createdAt: user.createdAt,
+      isAvsaMember: user.isAvsaMember,
+      localClub: user.localClub,
+      otherAffiliation: user.otherAffiliation,
+      stats,
       lists: user.lists.map(list => ({
         id: list.id,
         name: list.name,

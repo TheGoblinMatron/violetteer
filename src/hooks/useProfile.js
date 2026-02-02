@@ -113,7 +113,7 @@ export function useProfile() {
    * @param {string} username - Username to fetch
    * @returns {Object|null} Public profile or null if not found
    */
-  const fetchPublicProfile = async (username) => {
+  const fetchPublicProfile = useCallback(async (username) => {
     try {
       const response = await fetch(`${API_URL}/users/${username}`, {
         credentials: 'include', // Include auth to check if viewing own profile
@@ -131,7 +131,7 @@ export function useProfile() {
       console.error('Error fetching public profile:', err);
       return null;
     }
-  };
+  }, []);
 
   return {
     profile,
