@@ -5,10 +5,35 @@ import { toNodeHandler } from 'better-auth/node';
 import { auth } from './lib/auth.js';
 import { requireAuth, optionalAuth } from './middleware/auth.js';
 import { generateDescription } from './lib/plantDescription.js';
+import { v2 as cloudinary } from 'cloudinary';
+import multer from 'multer';
 
 const app = express();
 const prisma = new PrismaClient();
 const PORT = 3001;
+
+// Configure Cloudinary for avatar uploads
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Configure multer for handling file uploads (memory storage)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB max
+  },
+  fileFilter: (req, file, cb) => {
+    // Only allow images
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'));
+    }
+  },
+});
 
 /**
  * CORS CONFIGURATION
@@ -50,6 +75,336 @@ app.use('/api/auth', (req, res, next) => {
   // Better Auth expects the path without the /api/auth prefix
   // but since we're mounting at /api/auth, the full URL is preserved
   authHandler(req, res);
+});
+
+// ===== USER PROFILES =====
+
+/**
+ * GET current user's profile
+ *
+ * Returns the full profile for the authenticated user.
+ * Used by the Settings page to populate form fields.
+ */
+app.get('/api/users/me', requireAuth, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        displayName: true,
+        bio: true,
+        location: true,
+        website: true,
+        username: true,
+        socialInstagram: true,
+        socialFacebook: true,
+        socialTwitter: true,
+        profileIsPublic: true,
+        showEmail: true,
+        isAvsaMember: true,
+        localClub: true,
+        otherAffiliation: true,
+        createdAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * UPDATE current user's profile
+ *
+ * Allows updating profile fields but NOT sensitive fields like email or isAdmin.
+ */
+app.put('/api/users/me', requireAuth, async (req, res) => {
+  try {
+    // Only allow updating these specific fields
+    const allowedFields = [
+      'displayName', 'bio', 'location', 'website', 'username',
+      'socialInstagram', 'socialFacebook', 'socialTwitter',
+      'profileIsPublic', 'showEmail',
+      'isAvsaMember', 'localClub', 'otherAffiliation'
+    ];
+
+    const updateData = {};
+    for (const field of allowedFields) {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    }
+
+    // Validate username format and uniqueness if being changed
+    if (updateData.username !== undefined) {
+      if (updateData.username) {
+        // Validate format: lowercase alphanumeric and underscores only
+        const usernameRegex = /^[a-z0-9_]+$/;
+        if (!usernameRegex.test(updateData.username)) {
+          return res.status(400).json({
+            error: 'Username can only contain lowercase letters, numbers, and underscores'
+          });
+        }
+        if (updateData.username.length < 3 || updateData.username.length > 30) {
+          return res.status(400).json({
+            error: 'Username must be between 3 and 30 characters'
+          });
+        }
+
+        // Check uniqueness
+        const existing = await prisma.user.findUnique({
+          where: { username: updateData.username }
+        });
+        if (existing && existing.id !== req.user.id) {
+          return res.status(400).json({ error: 'Username already taken' });
+        }
+      }
+    }
+
+    // Validate website URL if provided
+    if (updateData.website) {
+      try {
+        new URL(updateData.website);
+      } catch {
+        return res.status(400).json({ error: 'Invalid website URL' });
+      }
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: updateData,
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        image: true,
+        displayName: true,
+        bio: true,
+        location: true,
+        website: true,
+        username: true,
+        socialInstagram: true,
+        socialFacebook: true,
+        socialTwitter: true,
+        profileIsPublic: true,
+        showEmail: true,
+        createdAt: true,
+      },
+    });
+
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * CHECK username availability
+ *
+ * Public endpoint for real-time validation in the settings form.
+ */
+app.get('/api/users/check-username/:username', async (req, res) => {
+  try {
+    const { username } = req.params;
+
+    // Validate format
+    const usernameRegex = /^[a-z0-9_]+$/;
+    if (!usernameRegex.test(username)) {
+      return res.json({ available: false, reason: 'Invalid format' });
+    }
+
+    const existing = await prisma.user.findUnique({
+      where: { username }
+    });
+
+    res.json({ available: !existing });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * UPLOAD avatar image
+ *
+ * Accepts multipart form data with an image file.
+ * Uploads to Cloudinary and updates user.image field.
+ */
+app.post('/api/users/me/avatar', requireAuth, upload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    // Check if Cloudinary is configured
+    if (!process.env.CLOUDINARY_CLOUD_NAME) {
+      return res.status(500).json({ error: 'Image upload not configured' });
+    }
+
+    // Upload to Cloudinary
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        {
+          folder: 'violetteer/avatars',
+          public_id: `user_${req.user.id}`,
+          overwrite: true,
+          transformation: [
+            { width: 200, height: 200, crop: 'fill', gravity: 'face' },
+            { quality: 'auto' },
+            { format: 'jpg' },
+          ],
+        },
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        }
+      );
+      uploadStream.end(req.file.buffer);
+    });
+
+    // Update user's image URL in database
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { image: uploadResult.secure_url },
+      select: {
+        id: true,
+        image: true,
+      },
+    });
+
+    res.json({ image: user.image });
+  } catch (error) {
+    console.error('Avatar upload error:', error);
+    res.status(500).json({ error: 'Failed to upload avatar' });
+  }
+});
+
+/**
+ * DELETE avatar image
+ *
+ * Removes the user's avatar and sets image to null.
+ */
+app.delete('/api/users/me/avatar', requireAuth, async (req, res) => {
+  try {
+    // Delete from Cloudinary if configured
+    if (process.env.CLOUDINARY_CLOUD_NAME) {
+      try {
+        await cloudinary.uploader.destroy(`violetteer/avatars/user_${req.user.id}`);
+      } catch (cloudinaryError) {
+        console.error('Cloudinary delete error:', cloudinaryError);
+        // Continue even if Cloudinary delete fails
+      }
+    }
+
+    // Update user to remove image URL
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data: { image: null },
+      select: {
+        id: true,
+        image: true,
+      },
+    });
+
+    res.json({ image: null });
+  } catch (error) {
+    console.error('Avatar delete error:', error);
+    res.status(500).json({ error: 'Failed to delete avatar' });
+  }
+});
+
+/**
+ * GET public profile by username
+ *
+ * Returns public profile data. Respects privacy settings.
+ * Includes user's public lists.
+ */
+app.get('/api/users/:username', optionalAuth, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { username: req.params.username },
+      include: {
+        lists: {
+          where: { isPublic: true },
+          include: {
+            _count: { select: { listPlants: true } }
+          },
+          orderBy: { createdAt: 'asc' }
+        }
+      }
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Check privacy - allow if public OR if viewing own profile
+    if (!user.profileIsPublic && req.user?.id !== user.id) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+
+    // Calculate stats for the profile
+    const [totalPlantsResult, photosContributed, reviewsWritten] = await Promise.all([
+      // Count unique plants across all user's lists
+      prisma.listPlant.findMany({
+        where: { list: { userId: user.id } },
+        select: { plantId: true },
+        distinct: ['plantId']
+      }),
+      // Photos contributed
+      prisma.plantPhoto.count({
+        where: { userId: user.id }
+      }),
+      // Reviews written
+      prisma.review.count({
+        where: { userId: user.id }
+      })
+    ]);
+
+    const stats = {
+      totalPlants: totalPlantsResult.length,
+      publicLists: user.lists.length,
+      photosContributed,
+      reviewsWritten
+    };
+
+    // Return public-safe fields only
+    res.json({
+      id: user.id,
+      displayName: user.displayName || user.name,
+      username: user.username,
+      image: user.image,
+      bio: user.bio,
+      location: user.location,
+      website: user.website,
+      socialInstagram: user.socialInstagram,
+      socialFacebook: user.socialFacebook,
+      socialTwitter: user.socialTwitter,
+      email: user.showEmail ? user.email : undefined,
+      createdAt: user.createdAt,
+      isAvsaMember: user.isAvsaMember,
+      localClub: user.localClub,
+      otherAffiliation: user.otherAffiliation,
+      stats,
+      lists: user.lists.map(list => ({
+        id: list.id,
+        name: list.name,
+        description: list.description,
+        color: list.color,
+        plantCount: list._count.listPlants,
+      })),
+      isOwnProfile: req.user?.id === user.id,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // ===== TAGS =====

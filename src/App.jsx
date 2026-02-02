@@ -20,6 +20,8 @@ import Layout from './components/Layout';
 import PlantCatalog from './components/PlantCatalog';
 import ListView from './components/ListView';
 import PlantDetail from './components/PlantDetail';
+import SettingsPage from './components/SettingsPage';
+import PublicProfilePage from './components/PublicProfilePage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { usePlants } from './hooks/usePlants';
 import { useLists } from './hooks/useLists';
@@ -161,6 +163,12 @@ function AppContent() {
             />
           }
         />
+
+        {/* User settings page (private) */}
+        <Route path="/settings" element={<SettingsPage />} />
+
+        {/* Public user profile page */}
+        <Route path="/user/:username" element={<PublicProfilePage />} />
       </Routes>
     </Layout>
   );
