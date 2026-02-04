@@ -1,20 +1,20 @@
 /**
- * upload-catalog-photos.js - Upload FirstClass Photos to Cloudinary
+ * upload-catalog-photos.js - Upload FirstClass Photos to DO Spaces
  *
- * Uploads all photos from the FirstClass Photos folder to Cloudinary,
- * then updates the Plant records with the URLs.
+ * Uploads all photos from the FirstClass Photos folder to Digital Ocean Spaces,
+ * creating main (1024px) and thumbnail (300x300) versions for each.
  *
  * PHOTO MAPPING:
  *   - Photos are named like: {recNum}{letter}.jpg (e.g., 10003b.jpg, 10003c.jpg)
- *   - First photo (usually 'b') becomes Plant.imageUrl
- *   - All photos (up to 5) go into Plant.featuredPhotos array
+ *   - First photo (usually 'b') becomes Plant.imageUrl / Plant.thumbnailUrl
+ *   - All main photos (up to 5) go into Plant.featuredPhotos array
  *
- * CLOUDINARY STRUCTURE:
- *   violetteer/catalog/{recNum}-{letter}
- *   e.g., violetteer/catalog/10003-b, violetteer/catalog/10003-c
+ * DO SPACES STRUCTURE:
+ *   catalog/{recNum}-{letter}-main.jpg   (1024px max width)
+ *   catalog/{recNum}-{letter}-thumb.jpg  (300x300 square)
  *
  * MAPPING FILE:
- *   Saves to /Users/sara/Documents/FirstClass/photo-mapping.json
+ *   Saves to /Users/sara/Documents/FirstClass/photo-mapping-spaces.json
  *   This file is read by import-firstclass-data.js on subsequent runs
  *   to avoid re-uploading photos.
  *
@@ -23,11 +23,12 @@
  *
  * Options:
  *   --dry-run     Show what would be uploaded without actually uploading
- *   --limit=N     Only upload first N photos (for testing)
+ *   --limit=N     Only upload first N plants (for testing)
  */
 
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { PrismaClient } from '@prisma/client';
-import { v2 as cloudinary } from 'cloudinary';
+import sharp from 'sharp';
 import fs from 'fs';
 import path from 'path';
 
@@ -35,7 +36,7 @@ const prisma = new PrismaClient();
 
 // Paths
 const PHOTOS_DIR = '/Users/sara/Documents/FirstClass/Photos';
-const MAPPING_FILE = '/Users/sara/Documents/FirstClass/photo-mapping.json';
+const MAPPING_FILE = '/Users/sara/Documents/FirstClass/photo-mapping-spaces.json';
 
 // Parse command line args
 const args = process.argv.slice(2);
@@ -43,11 +44,14 @@ const DRY_RUN = args.includes('--dry-run');
 const limitArg = args.find(a => a.startsWith('--limit='));
 const LIMIT = limitArg ? parseInt(limitArg.split('=')[1]) : null;
 
-// Configure Cloudinary
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+// Initialize S3 client for DO Spaces
+const s3Client = new S3Client({
+  endpoint: `https://${process.env.DO_SPACES_ENDPOINT}`,
+  region: process.env.DO_SPACES_REGION,
+  credentials: {
+    accessKeyId: process.env.DO_SPACES_ACCESS_KEY,
+    secretAccessKey: process.env.DO_SPACES_SECRET_KEY,
+  },
 });
 
 /**
@@ -64,22 +68,62 @@ function parsePhotoFilename(filename) {
 }
 
 /**
- * Upload a single photo to Cloudinary
+ * Upload a processed image to DO Spaces
+ */
+async function uploadProcessed(buffer, key, options = {}) {
+  const { width, height, fit = 'cover', quality = 80 } = options;
+
+  let processed = sharp(buffer);
+  if (width || height) {
+    processed = processed.resize({ width, height, fit });
+  }
+  // Convert to WebP for ~25-35% smaller files than JPEG
+  processed = processed.webp({ quality });
+
+  const optimizedBuffer = await processed.toBuffer();
+
+  if (DRY_RUN) {
+    return `${process.env.DO_SPACES_CDN_URL}/${key}`;
+  }
+
+  await s3Client.send(new PutObjectCommand({
+    Bucket: process.env.DO_SPACES_BUCKET,
+    Key: key,
+    Body: optimizedBuffer,
+    ContentType: 'image/webp',
+    ACL: 'public-read',
+    CacheControl: 'max-age=31536000',
+  }));
+
+  return `${process.env.DO_SPACES_CDN_URL}/${key}`;
+}
+
+/**
+ * Upload a single photo with both main and thumbnail versions
  */
 async function uploadPhoto(filePath, recNum, letter) {
-  const publicId = `violetteer/catalog/${recNum}-${letter}`;
+  const baseKey = `catalog/${recNum}-${letter}`;
 
   try {
-    const result = await cloudinary.uploader.upload(filePath, {
-      public_id: publicId,
-      overwrite: true,
-      resource_type: 'image',
-      transformation: [
-        { quality: 'auto:good' },
-        { fetch_format: 'auto' },
-      ],
+    const buffer = fs.readFileSync(filePath);
+
+    // Upload main version (1024px max width)
+    const mainUrl = await uploadProcessed(buffer, `${baseKey}-main.webp`, {
+      width: 1024,
+      height: null,
+      fit: 'inside',
+      quality: 80,
     });
-    return result.secure_url;
+
+    // Upload thumbnail (300x300)
+    const thumbUrl = await uploadProcessed(buffer, `${baseKey}-thumb.webp`, {
+      width: 300,
+      height: 300,
+      fit: 'cover',
+      quality: 70,
+    });
+
+    return { main: mainUrl, thumb: thumbUrl };
   } catch (error) {
     console.error(`  ✗ Failed to upload ${recNum}-${letter}: ${error.message}`);
     return null;
@@ -112,16 +156,16 @@ function saveMapping(mapping) {
  * Main upload function
  */
 async function main() {
-  console.log('📷 Violetteer Catalog Photo Uploader');
-  console.log('=====================================\n');
+  console.log('📷 Violetteer Catalog Photo Uploader (DO Spaces)');
+  console.log('=================================================\n');
 
   if (DRY_RUN) {
     console.log('🔍 DRY RUN MODE - No uploads will be made\n');
   }
 
-  // Check Cloudinary config
-  if (!process.env.CLOUDINARY_CLOUD_NAME && !DRY_RUN) {
-    console.error('Error: CLOUDINARY_CLOUD_NAME not set. Run with --dry-run or set environment variables.');
+  // Check DO Spaces config
+  if (!process.env.DO_SPACES_BUCKET && !DRY_RUN) {
+    console.error('Error: DO_SPACES_BUCKET not set. Run with --dry-run or set environment variables.');
     process.exit(1);
   }
 
@@ -167,7 +211,7 @@ async function main() {
   }
 
   // Upload photos
-  console.log('Uploading photos to Cloudinary...\n');
+  console.log('Uploading photos to DO Spaces...\n');
   const startTime = Date.now();
   let uploaded = 0;
   let skipped = 0;
@@ -178,30 +222,26 @@ async function main() {
     const photos = photosByRecNum[recNum];
 
     // Skip if already in mapping with all photos
-    if (mapping[recNum] && mapping[recNum].length >= photos.length) {
+    if (mapping[recNum] && mapping[recNum].main?.length >= photos.length) {
       skipped++;
       continue;
     }
 
     // Upload each photo for this plant (max 5)
-    const urls = [];
+    const urls = { main: [], thumb: [] };
     for (const photo of photos.slice(0, 5)) {
-      if (DRY_RUN) {
-        urls.push(`https://example.com/violetteer/catalog/${recNum}-${photo.letter}.jpg`);
+      const result = await uploadPhoto(photo.path, recNum, photo.letter);
+      if (result) {
+        urls.main.push(result.main);
+        urls.thumb.push(result.thumb);
         uploaded++;
       } else {
-        const url = await uploadPhoto(photo.path, recNum, photo.letter);
-        if (url) {
-          urls.push(url);
-          uploaded++;
-        } else {
-          failed++;
-        }
+        failed++;
       }
     }
 
     // Save to mapping
-    if (urls.length > 0) {
+    if (urls.main.length > 0) {
       mapping[recNum] = urls;
     }
 
@@ -209,8 +249,8 @@ async function main() {
     const progress = Math.round(((i + 1) / toProcess.length) * 100);
     process.stdout.write(`\r  Progress: ${i + 1}/${toProcess.length} plants (${progress}%) - Uploaded: ${uploaded}, Skipped: ${skipped}`);
 
-    // Save mapping periodically (every 100 plants)
-    if ((i + 1) % 100 === 0 && !DRY_RUN) {
+    // Save mapping periodically (every 50 plants)
+    if ((i + 1) % 50 === 0 && !DRY_RUN) {
       saveMapping(mapping);
     }
   }
@@ -230,14 +270,15 @@ async function main() {
     let updated = 0;
     for (const recNum of Object.keys(mapping)) {
       const urls = mapping[recNum];
-      if (urls.length === 0) continue;
+      if (!urls.main || urls.main.length === 0) continue;
 
       try {
         await prisma.plant.updateMany({
           where: { recNum: parseInt(recNum) },
           data: {
-            imageUrl: urls[0],  // First photo as primary
-            featuredPhotos: urls,  // All photos
+            imageUrl: urls.main[0],       // First main photo as primary
+            thumbnailUrl: urls.thumb[0],  // First thumbnail
+            featuredPhotos: urls.main,    // All main photos
           },
         });
         updated++;
@@ -251,7 +292,7 @@ async function main() {
 
   // Summary
   const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-  console.log('=====================================');
+  console.log('=================================================');
   console.log(`✅ Done in ${elapsed}s!`);
   console.log(`   Photos uploaded: ${uploaded.toLocaleString()}`);
   console.log(`   Plants skipped (already uploaded): ${skipped.toLocaleString()}`);

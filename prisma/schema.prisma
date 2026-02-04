@@ -143,8 +143,9 @@ model Plant {
   engTrans              String?
   alias                 String?
   lineage               String?
-  imageUrl              String?   // Primary display image (first of featuredPhotos, or user-set)
-  featuredPhotos        String[]  // Up to 5 official catalog photos (Cloudinary URLs)
+  imageUrl              String?   // Primary display image (main size, 1024px)
+  thumbnailUrl          String?   // Thumbnail for catalog grid (300x300)
+  featuredPhotos        String[]  // Up to 5 official catalog photos (main URLs)
   description           String?   // Pre-computed: "Name (regNum) MM/DD/YYYY (hybridizer) blossom. foliage. habit."
 
   // Catalog management
@@ -201,12 +202,13 @@ model ListPlant {
 }
 
 model PlantPhoto {
-  id          Int      @id @default(autoincrement())
-  plantId     Int
-  userId      String?  // Who uploaded it (optional - allows anonymous uploads)
-  imageUrl    String
-  caption     String?
-  uploadedAt  DateTime @default(now())
+  id           Int      @id @default(autoincrement())
+  plantId      Int
+  userId       String?  // Who uploaded it (optional - allows anonymous uploads)
+  imageUrl     String   // Main image (1024px)
+  thumbnailUrl String?  // Thumbnail (300x300) for gallery grids
+  caption      String?
+  uploadedAt   DateTime @default(now())
 
   // Relations
   plant       Plant    @relation(fields: [plantId], references: [id], onDelete: Cascade)

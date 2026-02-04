@@ -177,7 +177,25 @@ export default function PlantDetail({
         <Grid container spacing={3} sx={{ flexWrap: { xs: 'wrap', md: 'nowrap' } }}>
           {/* Column 1: Photo Gallery */}
           <Grid item xs={12} md={4} sx={{ minWidth: 0 }}>
-            {plant.imageUrl ? (
+            {/* Official Photos - stacked vertically */}
+            {plant.featuredPhotos?.length > 0 ? (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {plant.featuredPhotos.map((url, index) => (
+                  <Box
+                    key={index}
+                    component="img"
+                    src={url}
+                    alt={`${plant.name} photo ${index + 1}`}
+                    sx={{
+                      width: '100%',
+                      height: 'auto',
+                      objectFit: 'cover',
+                      borderRadius: 1,
+                    }}
+                  />
+                ))}
+              </Box>
+            ) : plant.imageUrl ? (
               <Box
                 component="img"
                 src={plant.imageUrl}
@@ -213,7 +231,7 @@ export default function PlantDetail({
                   <Box
                     key={photo.id}
                     component="img"
-                    src={photo.imageUrl}
+                    src={photo.thumbnailUrl || photo.imageUrl}
                     alt="User photo"
                     sx={{
                       width: 60,
@@ -232,32 +250,34 @@ export default function PlantDetail({
 
           {/* Column 2: Name & Description */}
           <Grid item xs={12} md={5} sx={{ minWidth: 0 }}>
-            {/* Plant name */}
-            <Typography variant="h4" component="h1" sx={{ fontWeight: 500, color: 'success.dark' }}>
-              {plant.name}
-            </Typography>
-
-            {/* Alias and English translation - directly under name */}
-            {plant.alias && (
-              <Typography variant="body2" color="text.secondary">
-                Also known as: {plant.alias}
+            {/* Plant name & description */}
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h4" component="h1" sx={{ fontWeight: 500, color: 'success.dark' }}>
+                {plant.name}
               </Typography>
-            )}
-            {plant.engTrans && (
-              <Typography variant="body2" color="text.secondary">
-                English: {plant.engTrans}
-              </Typography>
-            )}
 
-            {/* Compact description */}
-            <Typography variant="body1" sx={{ mt: 2, lineHeight: 1.6, wordWrap: 'break-word' }}>
-              {getDescription()}
-            </Typography>
+              {/* Alias and English translation - directly under name */}
+              {plant.alias && (
+                <Typography variant="body2" color="text.secondary">
+                  Also known as: {plant.alias}
+                </Typography>
+              )}
+              {plant.engTrans && (
+                <Typography variant="body2" color="text.secondary">
+                  English: {plant.engTrans}
+                </Typography>
+              )}
+
+              {/* Compact description */}
+              <Typography variant="body1" sx={{ mt: 2, lineHeight: 1.6, wordWrap: 'break-word' }}>
+                {getDescription()}
+              </Typography>
+            </Paper>
 
             {/* Additional Information (lineage, altReg, vintage only) */}
             {hasAdditionalInfo && (
-              <Box sx={{ mt: 2 }}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+              <Paper sx={{ p: 3 }}>
+                <Typography variant="h6" gutterBottom>
                   Additional Information
                 </Typography>
                 {plant.lineage && (
@@ -275,19 +295,19 @@ export default function PlantDetail({
                     <strong>Vintage:</strong> {plant.vintage}
                   </Typography>
                 )}
-              </Box>
+              </Paper>
             )}
           </Grid>
 
           {/* Column 3: Community Stats & User Lists */}
           <Grid item xs={12} md={3} sx={{ minWidth: 0, flexShrink: 0 }}>
             {/* Community Stats */}
-            <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-              <Typography variant="overline" color="text.secondary">
+            <Paper sx={{ p: 3, mb: 3 }}>
+              <Typography variant="h6" gutterBottom>
                 Community
               </Typography>
 
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Collections sx={{ color: 'success.main', fontSize: 20 }} />
                 <Typography variant="h6" sx={{ lineHeight: 1 }}>
                   {plant.collectionCount || 0}
@@ -318,8 +338,8 @@ export default function PlantDetail({
             </Paper>
 
             {/* User's Lists */}
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="overline" color="text.secondary">
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
                 Your Lists
               </Typography>
 

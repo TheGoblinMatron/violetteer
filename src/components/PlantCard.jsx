@@ -77,11 +77,11 @@ export default function PlantCard({
         }}
         onClick={() => navigate(`/plant/${plant.id}`)}
       >
-        {/* Small thumbnail */}
-        {plant.imageUrl ? (
+        {/* Small thumbnail - use thumbnailUrl for faster loading */}
+        {(plant.thumbnailUrl || plant.imageUrl) ? (
           <Box
             component="img"
-            src={plant.imageUrl}
+            src={plant.thumbnailUrl || plant.imageUrl}
             alt={plant.name}
             sx={{
               width: 48,
@@ -186,11 +186,12 @@ export default function PlantCard({
       )}
       
       <CardActionArea onClick={() => navigate(`/plant/${plant.id}`)}>
-        {plant.imageUrl ? (
+        {/* Use thumbnailUrl for grid view - faster loading */}
+        {(plant.thumbnailUrl || plant.imageUrl) ? (
           <CardMedia
             component="img"
             height="160"
-            image={plant.imageUrl}
+            image={plant.thumbnailUrl || plant.imageUrl}
             alt={plant.name}
             sx={{ objectFit: 'cover' }}
           />

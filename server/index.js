@@ -5,19 +5,13 @@ import { toNodeHandler } from 'better-auth/node';
 import { auth } from './lib/auth.js';
 import { requireAuth, optionalAuth } from './middleware/auth.js';
 import { generateDescription } from './lib/plantDescription.js';
-import { v2 as cloudinary } from 'cloudinary';
+import { uploadAvatar, uploadImageVersions, deleteImage } from './lib/spaces.js';
+import { randomUUID } from 'crypto';
 import multer from 'multer';
 
 const app = express();
 const prisma = new PrismaClient();
 const PORT = 3001;
-
-// Configure Cloudinary for avatar uploads
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
 
 // Configure multer for handling file uploads (memory storage)
 const upload = multer({
@@ -235,7 +229,7 @@ app.get('/api/users/check-username/:username', async (req, res) => {
  * UPLOAD avatar image
  *
  * Accepts multipart form data with an image file.
- * Uploads to Cloudinary and updates user.image field.
+ * Uploads to DO Spaces and updates user.image field.
  */
 app.post('/api/users/me/avatar', requireAuth, upload.single('avatar'), async (req, res) => {
   try {
@@ -243,36 +237,18 @@ app.post('/api/users/me/avatar', requireAuth, upload.single('avatar'), async (re
       return res.status(400).json({ error: 'No image file provided' });
     }
 
-    // Check if Cloudinary is configured
-    if (!process.env.CLOUDINARY_CLOUD_NAME) {
+    // Check if DO Spaces is configured
+    if (!process.env.DO_SPACES_BUCKET) {
       return res.status(500).json({ error: 'Image upload not configured' });
     }
 
-    // Upload to Cloudinary
-    const uploadResult = await new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        {
-          folder: 'violetteer/avatars',
-          public_id: `user_${req.user.id}`,
-          overwrite: true,
-          transformation: [
-            { width: 200, height: 200, crop: 'fill', gravity: 'face' },
-            { quality: 'auto' },
-            { format: 'jpg' },
-          ],
-        },
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        }
-      );
-      uploadStream.end(req.file.buffer);
-    });
+    // Upload to DO Spaces (200x200 avatar)
+    const imageUrl = await uploadAvatar(req.file.buffer, req.user.id);
 
     // Update user's image URL in database
     const user = await prisma.user.update({
       where: { id: req.user.id },
-      data: { image: uploadResult.secure_url },
+      data: { image: imageUrl },
       select: {
         id: true,
         image: true,
@@ -293,13 +269,13 @@ app.post('/api/users/me/avatar', requireAuth, upload.single('avatar'), async (re
  */
 app.delete('/api/users/me/avatar', requireAuth, async (req, res) => {
   try {
-    // Delete from Cloudinary if configured
-    if (process.env.CLOUDINARY_CLOUD_NAME) {
+    // Delete from DO Spaces if configured
+    if (process.env.DO_SPACES_BUCKET) {
       try {
-        await cloudinary.uploader.destroy(`violetteer/avatars/user_${req.user.id}`);
-      } catch (cloudinaryError) {
-        console.error('Cloudinary delete error:', cloudinaryError);
-        // Continue even if Cloudinary delete fails
+        await deleteImage(`avatars/${req.user.id}.webp`);
+      } catch (spacesError) {
+        console.error('Spaces delete error:', spacesError);
+        // Continue even if Spaces delete fails
       }
     }
 
@@ -484,8 +460,9 @@ app.get('/api/plants', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = Math.min(parseInt(req.query.limit) || 50, 100); // Cap at 100
     const searchParam = req.query.search || '';
-    const sortBy = req.query.sortBy || 'name';
+    const sortBy = req.query.sortBy || 'popularity';
     const tagsParam = req.query.tags || '';  // Comma-separated tag names (e.g., "pink,blue")
+    const hasPhotos = req.query.hasPhotos === 'true';  // Filter to show only plants with images
 
     // Calculate how many rows to skip
     const skip = (page - 1) * limit;
@@ -501,33 +478,44 @@ app.get('/api/plants', async (req, res) => {
       : [];
 
     // Build the WHERE clause
+    // Combine all filters into a single AND array for proper logic
+    const andConditions = [];
+
+    // Search term filters
+    if (searchTerms.length > 0) {
+      searchTerms.forEach(term => {
+        andConditions.push({
+          name: { contains: term, mode: 'insensitive' },
+        });
+      });
+    }
+
+    // Tag filters
+    if (tagFilters.length > 0) {
+      tagFilters.forEach(tagName => {
+        andConditions.push({
+          plantTags: {
+            some: {
+              tag: { name: tagName },
+            },
+          },
+        });
+      });
+    }
+
+    // Has photos filter - must have imageUrl OR non-empty featuredPhotos
+    if (hasPhotos) {
+      andConditions.push({
+        OR: [
+          { imageUrl: { not: null } },
+          { NOT: { featuredPhotos: { isEmpty: true } } },
+        ],
+      });
+    }
+
     const where = {
       isInCatalog: true,
-      ...(searchTerms.length > 0 && {
-        AND: searchTerms.map(term => ({
-          name: {
-            contains: term,
-            mode: 'insensitive',
-          },
-        })),
-      }),
-      // Tag filtering: plant must have ALL specified tags (AND logic)
-      ...(tagFilters.length > 0 && {
-        AND: [
-          ...(searchTerms.length > 0
-            ? searchTerms.map(term => ({
-                name: { contains: term, mode: 'insensitive' },
-              }))
-            : []),
-          ...tagFilters.map(tagName => ({
-            plantTags: {
-              some: {
-                tag: { name: tagName },
-              },
-            },
-          })),
-        ],
-      }),
+      ...(andConditions.length > 0 && { AND: andConditions }),
     };
 
     // Determine sort order based on sortBy parameter
@@ -1024,22 +1012,77 @@ app.get('/api/plants/:plantId/photos', async (req, res) => {
   }
 });
 
-// ADD photo to plant
+// ADD photo to plant (with URL - legacy support)
 app.post('/api/plants/:plantId/photos', async (req, res) => {
   try {
     const plantId = parseInt(req.params.plantId);
-    const { imageUrl, caption } = req.body;
+    const { imageUrl, thumbnailUrl, caption } = req.body;
 
     const photo = await prisma.plantPhoto.create({
       data: {
         plantId,
         imageUrl,
+        thumbnailUrl,
         caption
       }
     });
     res.json(photo);
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * UPLOAD photo for a plant
+ *
+ * Accepts multipart form data with an image file.
+ * Creates main (1024px) and thumbnail (300x300) versions.
+ * Uploads to DO Spaces and creates PlantPhoto record.
+ */
+app.post('/api/plants/:plantId/photos/upload', requireAuth, upload.single('photo'), async (req, res) => {
+  try {
+    const plantId = parseInt(req.params.plantId);
+
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    // Check if DO Spaces is configured
+    if (!process.env.DO_SPACES_BUCKET) {
+      return res.status(500).json({ error: 'Image upload not configured' });
+    }
+
+    // Verify plant exists
+    const plant = await prisma.plant.findUnique({
+      where: { id: plantId }
+    });
+
+    if (!plant) {
+      return res.status(404).json({ error: 'Plant not found' });
+    }
+
+    // Generate unique ID for this photo
+    const photoId = randomUUID();
+    const baseKey = `user-photos/${plantId}/${photoId}`;
+
+    // Upload main and thumbnail versions
+    const urls = await uploadImageVersions(req.file.buffer, baseKey);
+
+    // Create photo record
+    const photo = await prisma.plantPhoto.create({
+      data: {
+        plantId,
+        userId: req.user.id,
+        imageUrl: urls.main,
+        thumbnailUrl: urls.thumb,
+        caption: req.body.caption || null,
+      }
+    });
+
+    res.json(photo);
+  } catch (error) {
+    console.error('Photo upload error:', error);
+    res.status(500).json({ error: 'Failed to upload photo' });
   }
 });
 

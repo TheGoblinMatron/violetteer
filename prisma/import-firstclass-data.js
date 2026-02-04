@@ -30,7 +30,9 @@ const prisma = new PrismaClient();
 
 // Path to FirstClass data
 const FIRSTCLASS_DB_PATH = '/Users/sara/Documents/FirstClass/avml.db';
-const PHOTO_MAPPING_FILE = '/Users/sara/Documents/FirstClass/photo-mapping.json';
+// Photo mapping file - prefer Spaces version, fall back to old Cloudinary version
+const SPACES_MAPPING_FILE = '/Users/sara/Documents/FirstClass/photo-mapping-spaces.json';
+const CLOUDINARY_MAPPING_FILE = '/Users/sara/Documents/FirstClass/photo-mapping.json';
 
 // ============================================
 // HABIT TYPE MAPPING
@@ -98,29 +100,74 @@ function cleanVintage(value) {
 
 /**
  * Load photo mapping from previous upload (if exists)
- * This allows re-importing plant data without re-uploading photos
+ * This allows re-importing plant data without re-uploading photos.
+ *
+ * Supports two formats:
+ * - New Spaces format: { recNum: { main: [urls], thumb: [urls] } }
+ * - Old Cloudinary format: { recNum: [urls] }
  */
 function loadPhotoMapping() {
-  if (fs.existsSync(PHOTO_MAPPING_FILE)) {
+  // Prefer Spaces mapping if it exists
+  if (fs.existsSync(SPACES_MAPPING_FILE)) {
     try {
-      const data = fs.readFileSync(PHOTO_MAPPING_FILE, 'utf-8');
-      return JSON.parse(data);
+      const data = fs.readFileSync(SPACES_MAPPING_FILE, 'utf-8');
+      const mapping = JSON.parse(data);
+      console.log(`  ✓ Using Spaces photo mapping (${Object.keys(mapping).length} plants)`);
+      return { mapping, format: 'spaces' };
     } catch (error) {
-      console.warn('Warning: Could not parse photo mapping file');
+      console.warn('Warning: Could not parse Spaces mapping file');
     }
   }
-  return {};
+
+  // Fall back to old Cloudinary mapping
+  if (fs.existsSync(CLOUDINARY_MAPPING_FILE)) {
+    try {
+      const data = fs.readFileSync(CLOUDINARY_MAPPING_FILE, 'utf-8');
+      const mapping = JSON.parse(data);
+      console.log(`  ✓ Using Cloudinary photo mapping (${Object.keys(mapping).length} plants)`);
+      return { mapping, format: 'cloudinary' };
+    } catch (error) {
+      console.warn('Warning: Could not parse Cloudinary mapping file');
+    }
+  }
+
+  return { mapping: {}, format: null };
 }
 
 // Load photo mapping at startup
-const photoMapping = loadPhotoMapping();
+const { mapping: photoMapping, format: mappingFormat } = loadPhotoMapping();
+
+/**
+ * Get photo URLs for a plant from the mapping
+ * Handles both Spaces format { main: [], thumb: [] } and Cloudinary format [urls]
+ */
+function getPhotoUrls(recNum) {
+  const entry = photoMapping[recNum];
+  if (!entry) return { imageUrl: null, thumbnailUrl: null, featuredPhotos: [] };
+
+  if (mappingFormat === 'spaces') {
+    // New format: { main: [urls], thumb: [urls] }
+    return {
+      imageUrl: entry.main?.[0] || null,
+      thumbnailUrl: entry.thumb?.[0] || null,
+      featuredPhotos: entry.main || [],
+    };
+  } else {
+    // Old format: [urls] (Cloudinary)
+    return {
+      imageUrl: entry[0] || null,
+      thumbnailUrl: null,  // No thumbnails in old format
+      featuredPhotos: entry || [],
+    };
+  }
+}
 
 /**
  * Transform a FirstClass record into Violetteer Plant format
  */
 function transformPlant(row) {
   // Get photo URLs from mapping if they exist
-  const photos = photoMapping[row.RecNum] || [];
+  const photos = getPhotoUrls(row.RecNum);
 
   return {
     recNum: row.RecNum,
@@ -137,8 +184,9 @@ function transformPlant(row) {
     alias: cleanString(row.Alias, { replaceCaret: true }),
     lineage: cleanString(row.Lineage),
     isInCatalog: true,
-    imageUrl: photos[0] || null,  // First photo as primary image
-    featuredPhotos: photos,       // All photos from mapping
+    imageUrl: photos.imageUrl,
+    thumbnailUrl: photos.thumbnailUrl,
+    featuredPhotos: photos.featuredPhotos,
   };
 }
 
@@ -515,7 +563,7 @@ async function main() {
 
   if (plantsWithPhotos === 0) {
     console.log(`📷 Photos not imported. Run 'npm run upload-catalog-photos'`);
-    console.log(`   to upload photos to Cloudinary (takes 15-30 min).`);
+    console.log(`   to upload photos to DO Spaces (takes 1-2 hours for 10K photos).`);
   } else {
     console.log(`📷 Restored ${plantsWithPhotos.toLocaleString()} plant photos from mapping file.`);
   }

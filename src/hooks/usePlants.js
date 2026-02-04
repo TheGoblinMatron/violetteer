@@ -55,7 +55,7 @@ export function usePlants() {
    * Without it, this function would be recreated on every render,
    * which would cause useEffect to re-run unnecessarily.
    */
-  const fetchCatalogPage = useCallback(async (page = 1, filters = [], sortBy = 'name', tags = []) => {
+  const fetchCatalogPage = useCallback(async (page = 1, filters = [], sortBy = 'popularity', tags = [], hasPhotosOnly = false) => {
     try {
       // Normalize filters to array
       const filterArray = Array.isArray(filters) ? filters : (filters ? [filters] : []);
@@ -69,6 +69,7 @@ export function usePlants() {
         sortBy,
         ...(filterArray.length > 0 && { search: filterArray.join(',') }),
         ...(tagArray.length > 0 && { tags: tagArray.join(',') }),
+        ...(hasPhotosOnly && { hasPhotos: 'true' }),
       });
 
       const response = await fetch(`${API_URL}/plants?${params}`);

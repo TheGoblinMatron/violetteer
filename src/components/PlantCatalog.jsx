@@ -31,6 +31,8 @@ import {
   IconButton,
   Tooltip,
   Collapse,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import { Add, Search, ViewList, ViewHeadline, TuneRounded, ExpandMore, ExpandLess } from '@mui/icons-material';
 import PlantFormDialog from './PlantFormDialog';
@@ -60,7 +62,10 @@ export default function PlantCatalog({
   const [activeFilters, setActiveFilters] = useState([]);
 
   // Sort order: 'name' (A-Z), 'popularity' (most collected), 'recent' (recently added to collections)
-  const [sortBy, setSortBy] = useState('name');
+  const [sortBy, setSortBy] = useState('popularity');
+
+  // Filter to show only plants with photos
+  const [hasPhotosOnly, setHasPhotosOnly] = useState(false);
 
   // Verbose mode for mobile list view (show full description vs just name)
   const [verboseList, setVerboseList] = useState(false);
@@ -102,7 +107,7 @@ export default function PlantCatalog({
    * We pass the active filters and sort order so results stay filtered/sorted.
    */
   const handlePageChange = (event, page) => {
-    onPageChange(page, activeFilters, sortBy, selectedTags);
+    onPageChange(page, activeFilters, sortBy, selectedTags, hasPhotosOnly);
     // Scroll to top when changing pages for better UX
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -113,7 +118,7 @@ export default function PlantCatalog({
   const handleSortChange = (event) => {
     const newSortBy = event.target.value;
     setSortBy(newSortBy);
-    onPageChange(1, activeFilters, newSortBy, selectedTags);  // Reset to page 1 when sorting changes
+    onPageChange(1, activeFilters, newSortBy, selectedTags, hasPhotosOnly);  // Reset to page 1 when sorting changes
   };
 
   /**
@@ -124,7 +129,16 @@ export default function PlantCatalog({
       ? selectedTags.filter(t => t !== tagName)
       : [...selectedTags, tagName];
     setSelectedTags(newTags);
-    onPageChange(1, activeFilters, sortBy, newTags);
+    onPageChange(1, activeFilters, sortBy, newTags, hasPhotosOnly);
+  };
+
+  /**
+   * Toggle "has photos only" filter
+   */
+  const handleToggleHasPhotos = () => {
+    const newValue = !hasPhotosOnly;
+    setHasPhotosOnly(newValue);
+    onPageChange(1, activeFilters, sortBy, selectedTags, newValue);
   };
 
   /**
@@ -150,7 +164,7 @@ export default function PlantCatalog({
     const newFilters = [...activeFilters, term];
     setActiveFilters(newFilters);
     setSearchInput('');  // Clear input after applying
-    onPageChange(1, newFilters, sortBy, selectedTags);
+    onPageChange(1, newFilters, sortBy, selectedTags, hasPhotosOnly);
   };
 
   /**
@@ -170,7 +184,7 @@ export default function PlantCatalog({
   const handleRemoveFilter = (filterToRemove) => {
     const newFilters = activeFilters.filter(f => f !== filterToRemove);
     setActiveFilters(newFilters);
-    onPageChange(1, newFilters, sortBy, selectedTags);
+    onPageChange(1, newFilters, sortBy, selectedTags, hasPhotosOnly);
   };
 
   /**
@@ -179,7 +193,8 @@ export default function PlantCatalog({
   const handleClearAllFilters = () => {
     setActiveFilters([]);
     setSelectedTags([]);
-    onPageChange(1, [], sortBy, []);
+    setHasPhotosOnly(false);
+    onPageChange(1, [], sortBy, [], false);
   };
 
   return (
@@ -284,6 +299,23 @@ export default function PlantCatalog({
                 );
               })}
             </Box>
+
+            {/* Has Photos toggle */}
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={hasPhotosOnly}
+                  onChange={handleToggleHasPhotos}
+                  size="small"
+                />
+              }
+              label={
+                <Typography variant="body2" color="text.secondary">
+                  Show only varieties with photos
+                </Typography>
+              }
+              sx={{ mt: 1.5, ml: 0 }}
+            />
           </Box>
         </Collapse>
 
@@ -352,7 +384,16 @@ export default function PlantCatalog({
               />
             );
           })}
-          {(activeFilters.length > 0 || selectedTags.length > 0) && (activeFilters.length + selectedTags.length > 1) && (
+          {hasPhotosOnly && (
+            <Chip
+              label="Has photos"
+              onDelete={handleToggleHasPhotos}
+              size="small"
+              color="secondary"
+              variant="outlined"
+            />
+          )}
+          {(activeFilters.length > 0 || selectedTags.length > 0 || hasPhotosOnly) && (activeFilters.length + selectedTags.length + (hasPhotosOnly ? 1 : 0) > 1) && (
             <Button size="small" onClick={handleClearAllFilters} sx={{ minHeight: 0, py: 0 }}>
               Clear all
             </Button>

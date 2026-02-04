@@ -14,9 +14,11 @@
     "generate-test-data": "node prisma/generate-test-data.js",
     "generate-test-users": "node prisma/generate-test-users.js",
     "recalculate-popularity": "node prisma/recalculate-popularity.js",
-    "upload-catalog-photos": "node --env-file=.env prisma/upload-catalog-photos.js"
+    "upload-catalog-photos": "node --env-file=.env prisma/upload-catalog-photos.js",
+    "migrate-photos": "node --env-file=.env prisma/migrate-to-spaces.js"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.982.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
     "@mui/icons-material": "^7.3.6",
@@ -24,14 +26,14 @@
     "@prisma/client": "^6.19.2",
     "better-auth": "^1.4.17",
     "better-sqlite3": "^12.6.2",
-    "cloudinary": "^2.9.0",
     "cors": "^2.8.5",
     "express": "^5.2.1",
     "multer": "^2.0.2",
     "prisma": "^6.19.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
-    "react-router-dom": "^7.10.1"
+    "react-router-dom": "^7.10.1",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
