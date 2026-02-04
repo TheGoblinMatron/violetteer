@@ -9,9 +9,12 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "generate-all": "node prisma/generate-all-data.js",
+    "import-real-data": "node prisma/import-firstclass-data.js",
     "generate-test-data": "node prisma/generate-test-data.js",
     "generate-test-users": "node prisma/generate-test-users.js",
-    "recalculate-popularity": "node prisma/recalculate-popularity.js"
+    "recalculate-popularity": "node prisma/recalculate-popularity.js",
+    "upload-catalog-photos": "node --env-file=.env prisma/upload-catalog-photos.js"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -20,6 +23,7 @@
     "@mui/material": "^7.3.6",
     "@prisma/client": "^6.19.2",
     "better-auth": "^1.4.17",
+    "better-sqlite3": "^12.6.2",
     "cloudinary": "^2.9.0",
     "cors": "^2.8.5",
     "express": "^5.2.1",
