@@ -1,16 +1,18 @@
 // ListView.jsx - Display plants in a specific list
 import { Container, Grid, Typography, Box, IconButton, TextField, Button, Chip } from '@mui/material';
-import { Close, Edit, Save, Cancel, Public, Lock, Settings, Add } from '@mui/icons-material';
+import { Close, Edit, Save, Cancel, Public, Lock, Settings, Add, Print } from '@mui/icons-material';
 import { useState } from 'react';
 import PlantCard from './PlantCard';
 import CreateListDialog from './CreateListDialog';
 import AddPlantToListDialog from './AddPlantToListDialog';
+import PrintLabelsDialog from './PrintLabelsDialog';
 
 export default function ListView({ list, allPlants, onRemoveFromList, onUpdateNotes, onAddToList, onUpdateList, onCreatePlant, lists, allPlantsLoading }) {
   const [editingNotes, setEditingNotes] = useState({});
   const [notesValues, setNotesValues] = useState({});
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showAddPlantDialog, setShowAddPlantDialog] = useState(false);
+  const [showPrintDialog, setShowPrintDialog] = useState(false);
 
   // Note: allPlantsLoading is passed to AddPlantToListDialog for showing
   // a loading state in the autocomplete. The list content itself (from
@@ -154,14 +156,23 @@ export default function ListView({ list, allPlants, onRemoveFromList, onUpdateNo
           )}
         </Box>
         
-        <Button
-          variant="contained"
-          color="success"
-          startIcon={<Add />}
-          onClick={handleAddPlantClick}
-        >
-          Add Plants
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<Print />}
+            onClick={() => setShowPrintDialog(true)}
+          >
+            Print Labels
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            startIcon={<Add />}
+            onClick={handleAddPlantClick}
+          >
+            Add Plants
+          </Button>
+        </Box>
       </Box>
 
       <Grid container spacing={2}>
@@ -250,6 +261,13 @@ export default function ListView({ list, allPlants, onRemoveFromList, onUpdateNo
         onClose={() => setShowAddPlantDialog(false)}
         onAddExisting={handleAddExisting}
         onCreateNew={handleCreateNew}
+      />
+
+      {/* Print Labels Dialog */}
+      <PrintLabelsDialog
+        open={showPrintDialog}
+        onClose={() => setShowPrintDialog(false)}
+        plants={list.listPlants.map(lp => lp.plant)}
       />
     </Container>
   );
