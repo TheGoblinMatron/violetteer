@@ -22,6 +22,7 @@ import ListView from './components/ListView';
 import PlantDetail from './components/PlantDetail';
 import SettingsPage from './components/SettingsPage';
 import PublicProfilePage from './components/PublicProfilePage';
+import AdminDashboard from './components/AdminDashboard';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { usePlants } from './hooks/usePlants';
 import { useLists } from './hooks/useLists';
@@ -169,6 +170,9 @@ function AppContent() {
 
         {/* Public user profile page */}
         <Route path="/user/:username" element={<PublicProfilePage />} />
+
+        {/* Admin dashboard (admin only) */}
+        <Route path="/admin" element={<AdminDashboard />} />
       </Routes>
     </Layout>
   );

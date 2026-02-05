@@ -297,6 +297,63 @@ export default function PlantDetail({
                 )}
               </Paper>
             )}
+
+            {/* Tags Section - grouped by category */}
+            {plant.plantTags?.length > 0 && (() => {
+              // Group tags by category
+              const tagsByCategory = plant.plantTags.reduce((acc, plantTag) => {
+                const category = plantTag.tag.category;
+                if (!acc[category]) acc[category] = [];
+                acc[category].push(plantTag);
+                return acc;
+              }, {});
+
+              // Human-readable category labels
+              const categoryLabels = {
+                color: 'Blossom Color',
+                leaf_color: 'Leaf Color',
+                bloom_type: 'Bloom Type',
+                foliage: 'Foliage',
+                habit: 'Growth Habit',
+                size: 'Size',
+              };
+
+              return (
+                <Paper sx={{ p: 3, mt: 3 }}>
+                  <Typography variant="h6" gutterBottom>
+                    Tags
+                  </Typography>
+                  {Object.entries(tagsByCategory).map(([category, plantTags]) => (
+                    <Box key={category} sx={{ mb: 1.5, '&:last-child': { mb: 0 } }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                        {categoryLabels[category] || category}
+                      </Typography>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75 }}>
+                        {plantTags.map((plantTag) => {
+                          const tag = plantTag.tag;
+                          // Determine if this is a light color that needs dark text
+                          const isLightColor = tag.name === 'white' || tag.name === 'yellow' || tag.name === 'lavender';
+                          return (
+                            <Chip
+                              key={plantTag.id}
+                              label={tag.displayName}
+                              size="small"
+                              sx={{
+                                bgcolor: tag.color || 'grey.200',
+                                color: isLightColor ? 'text.primary' : (tag.color ? 'white' : 'text.primary'),
+                                border: tag.color === '#FFFFFF' ? '1px solid' : 'none',
+                                borderColor: 'grey.400',
+                                fontWeight: 500,
+                              }}
+                            />
+                          );
+                        })}
+                      </Box>
+                    </Box>
+                  ))}
+                </Paper>
+              );
+            })()}
           </Grid>
 
           {/* Column 3: Community Stats & User Lists */}

@@ -3,7 +3,7 @@ import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './lib/auth.js';
-import { requireAuth, optionalAuth } from './middleware/auth.js';
+import { requireAuth, optionalAuth, requireAdmin } from './middleware/auth.js';
 import { generateDescription } from './lib/plantDescription.js';
 import { uploadAvatar, uploadImageVersions, deleteImage } from './lib/spaces.js';
 import { randomUUID } from 'crypto';
@@ -607,6 +607,11 @@ app.get('/api/plants/:id', async (req, res) => {
           },
           reviews: {
             orderBy: { createdAt: 'desc' }
+          },
+          plantTags: {
+            include: {
+              tag: true
+            }
           }
         }
       }),
@@ -1157,6 +1162,174 @@ app.delete('/api/reviews/:id', async (req, res) => {
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// ===== ADMIN =====
+
+/**
+ * Admin stats cache
+ * Stores computed statistics with a timestamp for cache invalidation
+ */
+let adminStatsCache = {
+  data: null,
+  timestamp: null,
+  CACHE_TTL: 60 * 60 * 1000, // 1 hour in milliseconds
+};
+
+/**
+ * GET /api/admin/stats - Get admin dashboard statistics
+ *
+ * Returns cached statistics about the catalog:
+ * - Color popularity in user collections (pie chart data)
+ * - Total users, total plants collected
+ *
+ * Caches results for 1 hour to avoid expensive queries.
+ */
+app.get('/api/admin/stats', requireAdmin, async (req, res) => {
+  try {
+    const now = Date.now();
+
+    // Return cached data if still valid
+    if (
+      adminStatsCache.data &&
+      adminStatsCache.timestamp &&
+      now - adminStatsCache.timestamp < adminStatsCache.CACHE_TTL
+    ) {
+      return res.json({
+        ...adminStatsCache.data,
+        cached: true,
+        cachedAt: new Date(adminStatsCache.timestamp).toISOString(),
+      });
+    }
+
+    // Compute fresh stats
+
+    // 1. Color popularity in collections (only "My Collection" lists)
+    const colorTags = await prisma.tag.findMany({
+      where: { category: 'color' },
+      select: {
+        name: true,
+        displayName: true,
+        color: true,
+        plantTags: {
+          where: {
+            plant: {
+              listPlants: {
+                some: {
+                  list: { name: 'My Collection' },
+                },
+              },
+            },
+          },
+          select: { plantId: true },
+        },
+      },
+    });
+
+    // Count unique plants per color in collections
+    const collectionColorCounts = colorTags.map((tag) => ({
+      name: tag.name,
+      displayName: tag.displayName,
+      color: tag.color,
+      count: new Set(tag.plantTags.map((pt) => pt.plantId)).size,
+    }));
+
+    // 1b. Color distribution in the entire catalog (for comparison)
+    const catalogColorTags = await prisma.tag.findMany({
+      where: { category: 'color' },
+      select: {
+        name: true,
+        displayName: true,
+        color: true,
+        plantTags: {
+          where: {
+            plant: { isInCatalog: true },
+          },
+          select: { plantId: true },
+        },
+      },
+    });
+
+    // Count unique plants per color in catalog
+    const catalogColorCounts = catalogColorTags.map((tag) => ({
+      name: tag.name,
+      count: new Set(tag.plantTags.map((pt) => pt.plantId)).size,
+    }));
+
+    // Calculate totals for percentage computation
+    const totalCollectedByColor = collectionColorCounts.reduce((sum, c) => sum + c.count, 0);
+    const totalCatalogByColor = catalogColorCounts.reduce((sum, c) => sum + c.count, 0);
+
+    // Build combined color stats with collection index
+    const colorStats = collectionColorCounts
+      .map((collected) => {
+        const catalog = catalogColorCounts.find((c) => c.name === collected.name);
+        const catalogCount = catalog?.count || 0;
+
+        // Calculate percentages
+        const collectionPct = totalCollectedByColor > 0 ? (collected.count / totalCollectedByColor) * 100 : 0;
+        const catalogPct = totalCatalogByColor > 0 ? (catalogCount / totalCatalogByColor) * 100 : 0;
+
+        // Collection index: ratio of collection % to catalog %
+        // > 1 means over-collected, < 1 means under-collected
+        const collectionIndex = catalogPct > 0 ? collectionPct / catalogPct : 0;
+
+        return {
+          name: collected.name,
+          displayName: collected.displayName,
+          color: collected.color,
+          count: collected.count,           // Plants of this color in collections
+          catalogCount,                      // Plants of this color in catalog
+          collectionPct: Math.round(collectionPct * 10) / 10,
+          catalogPct: Math.round(catalogPct * 10) / 10,
+          collectionIndex: Math.round(collectionIndex * 100) / 100,
+        };
+      })
+      .filter((tag) => tag.count > 0 || tag.catalogCount > 0)
+      .sort((a, b) => b.count - a.count);
+
+    // 2. Total users
+    const totalUsers = await prisma.user.count();
+
+    // 3. Total plants in collections
+    const totalCollectedPlants = await prisma.listPlant.count({
+      where: {
+        list: { name: 'My Collection' },
+      },
+    });
+
+    // 4. Total catalog plants
+    const totalCatalogPlants = await prisma.plant.count({
+      where: { isInCatalog: true },
+    });
+
+    // Build stats object
+    const stats = {
+      colorStats,
+      totalUsers,
+      totalCollectedPlants,
+      totalCatalogPlants,
+      computedAt: new Date().toISOString(),
+    };
+
+    // Update cache
+    adminStatsCache.data = stats;
+    adminStatsCache.timestamp = now;
+
+    res.json({ ...stats, cached: false });
+  } catch (error) {
+    console.error('Error fetching admin stats:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/stats/refresh - Force refresh of admin stats cache
+ */
+app.post('/api/admin/stats/refresh', requireAdmin, async (req, res) => {
+  adminStatsCache.data = null;
+  adminStatsCache.timestamp = null;
+  res.json({ message: 'Stats cache cleared' });
 });
 
 app.listen(PORT, () => {

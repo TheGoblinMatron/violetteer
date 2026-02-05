@@ -75,3 +75,35 @@ export const optionalAuth = async (req, res, next) => {
     next();
   }
 };
+
+/**
+ * requireAdmin - Middleware that blocks non-admin users
+ *
+ * Use this for routes that require admin privileges:
+ *   app.get('/api/admin/stats', requireAdmin, async (req, res) => { ... })
+ *
+ * First checks authentication (like requireAuth), then checks isAdmin flag.
+ */
+export const requireAdmin = async (req, res, next) => {
+  try {
+    const session = await auth.api.getSession({
+      headers: req.headers,
+    });
+
+    if (!session) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    if (!session.user.isAdmin) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+
+    req.user = session.user;
+    req.session = session.session;
+
+    next();
+  } catch (error) {
+    console.error('Admin auth middleware error:', error);
+    return res.status(401).json({ error: 'Authentication failed' });
+  }
+};
