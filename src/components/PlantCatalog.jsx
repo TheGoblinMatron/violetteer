@@ -12,7 +12,8 @@
  * 4. When user clicks a page, we call onPageChange(pageNumber)
  * 5. Parent fetches that page and passes new `plants` array
  */
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Container,
   Grid,
@@ -52,30 +53,60 @@ export default function PlantCatalog({
   const { isAdmin } = useAuth();
   const [showAddDialog, setShowAddDialog] = useState(false);
 
+  // Use URL search params to persist filter state across navigation
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // Detect mobile viewport for list vs grid view
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
+  // Parse state from URL search params
+  const activeFilters = searchParams.get('q')?.split(',').filter(Boolean) || [];
+  const sortBy = searchParams.get('sort') || 'popularity';
+  const hasPhotosOnly = searchParams.get('photos') === 'true';
+  const selectedTags = searchParams.get('tags')?.split(',').filter(Boolean) || [];
+  const currentPage = parseInt(searchParams.get('page')) || 1;
+
   // searchInput = what the user is typing (not yet applied)
-  // activeFilters = array of search terms currently filtering results (shown as chips)
   const [searchInput, setSearchInput] = useState('');
-  const [activeFilters, setActiveFilters] = useState([]);
-
-  // Sort order: 'name' (A-Z), 'popularity' (most collected), 'recent' (recently added to collections)
-  const [sortBy, setSortBy] = useState('popularity');
-
-  // Filter to show only plants with photos
-  const [hasPhotosOnly, setHasPhotosOnly] = useState(false);
 
   // Verbose mode for mobile list view (show full description vs just name)
   const [verboseList, setVerboseList] = useState(false);
 
   // Color tag filters
   const { tags: colorTags } = useTags('color');
-  const [selectedTags, setSelectedTags] = useState([]);
 
-  // Advanced search panel visibility
-  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  // Advanced search panel visibility - auto-open if tags are active
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(selectedTags.length > 0);
+
+  /**
+   * Update URL search params helper
+   * Removes empty values to keep URL clean
+   */
+  const updateSearchParams = useCallback((updates) => {
+    setSearchParams((prev) => {
+      const newParams = new URLSearchParams(prev);
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value === null || value === undefined || value === '' ||
+            (Array.isArray(value) && value.length === 0) ||
+            (key === 'sort' && value === 'popularity') ||
+            (key === 'page' && value === 1) ||
+            (key === 'photos' && value === false)) {
+          newParams.delete(key);
+        } else if (Array.isArray(value)) {
+          newParams.set(key, value.join(','));
+        } else {
+          newParams.set(key, String(value));
+        }
+      });
+      return newParams;
+    }, { replace: true });
+  }, [setSearchParams]);
+
+  // Sync URL state with data fetching on mount and when URL changes
+  useEffect(() => {
+    onPageChange(currentPage, activeFilters, sortBy, selectedTags, hasPhotosOnly);
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAddPlant = (newPlant) => {
     onAddPlant(newPlant);
@@ -104,10 +135,10 @@ export default function PlantCatalog({
    * Handle page change from Pagination component
    *
    * MUI Pagination passes (event, page) - we only need page.
-   * We pass the active filters and sort order so results stay filtered/sorted.
+   * Updates URL which triggers data fetch via useEffect.
    */
   const handlePageChange = (event, page) => {
-    onPageChange(page, activeFilters, sortBy, selectedTags, hasPhotosOnly);
+    updateSearchParams({ page });
     // Scroll to top when changing pages for better UX
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -116,9 +147,7 @@ export default function PlantCatalog({
    * Handle sort order change
    */
   const handleSortChange = (event) => {
-    const newSortBy = event.target.value;
-    setSortBy(newSortBy);
-    onPageChange(1, activeFilters, newSortBy, selectedTags, hasPhotosOnly);  // Reset to page 1 when sorting changes
+    updateSearchParams({ sort: event.target.value, page: 1 });
   };
 
   /**
@@ -128,17 +157,14 @@ export default function PlantCatalog({
     const newTags = selectedTags.includes(tagName)
       ? selectedTags.filter(t => t !== tagName)
       : [...selectedTags, tagName];
-    setSelectedTags(newTags);
-    onPageChange(1, activeFilters, sortBy, newTags, hasPhotosOnly);
+    updateSearchParams({ tags: newTags, page: 1 });
   };
 
   /**
    * Toggle "has photos only" filter
    */
   const handleToggleHasPhotos = () => {
-    const newValue = !hasPhotosOnly;
-    setHasPhotosOnly(newValue);
-    onPageChange(1, activeFilters, sortBy, selectedTags, newValue);
+    updateSearchParams({ photos: !hasPhotosOnly, page: 1 });
   };
 
   /**
@@ -147,7 +173,7 @@ export default function PlantCatalog({
    * When searching, we:
    * 1. Add to the active filters array (shows as chip)
    * 2. Clear the input field (ready for next search)
-   * 3. Fetch page 1 with all filters
+   * 3. Update URL which triggers fetch via useEffect
    *
    * Multiple filters are AND'd together - results must match ALL terms.
    */
@@ -162,9 +188,8 @@ export default function PlantCatalog({
     }
 
     const newFilters = [...activeFilters, term];
-    setActiveFilters(newFilters);
     setSearchInput('');  // Clear input after applying
-    onPageChange(1, newFilters, sortBy, selectedTags, hasPhotosOnly);
+    updateSearchParams({ q: newFilters, page: 1 });
   };
 
   /**
@@ -183,18 +208,14 @@ export default function PlantCatalog({
    */
   const handleRemoveFilter = (filterToRemove) => {
     const newFilters = activeFilters.filter(f => f !== filterToRemove);
-    setActiveFilters(newFilters);
-    onPageChange(1, newFilters, sortBy, selectedTags, hasPhotosOnly);
+    updateSearchParams({ q: newFilters, page: 1 });
   };
 
   /**
    * Clear all filters at once (text filters and color tags)
    */
   const handleClearAllFilters = () => {
-    setActiveFilters([]);
-    setSelectedTags([]);
-    setHasPhotosOnly(false);
-    onPageChange(1, [], sortBy, [], false);
+    updateSearchParams({ q: [], tags: [], photos: false, page: 1 });
   };
 
   return (
@@ -348,7 +369,7 @@ export default function PlantCatalog({
 
           <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
             {pagination.total.toLocaleString()} plants
-            {pagination.totalPages > 1 && ` • Page ${pagination.page}/${pagination.totalPages}`}
+            {pagination.totalPages > 1 && ` • Page ${currentPage}/${pagination.totalPages}`}
           </Typography>
           {activeFilters.map((filter) => (
             <Chip
@@ -489,7 +510,7 @@ export default function PlantCatalog({
           >
             <Pagination
               count={pagination.totalPages}  // Total number of pages
-              page={pagination.page}          // Current page (controlled)
+              page={currentPage}              // Current page from URL (controlled)
               onChange={handlePageChange}     // Called when user clicks a page
               color="primary"
               size="large"

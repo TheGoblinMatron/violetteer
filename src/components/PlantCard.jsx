@@ -112,14 +112,28 @@ export default function PlantCard({
         <Box sx={{ flex: 1, minWidth: 0 }}>
           {verbose ? (
             // Verbose: full description, wraps to multiple lines
-            <Typography variant="body2" sx={{ lineHeight: 1.4 }}>
-              {getDescription()}
-            </Typography>
+            <>
+              <Typography variant="body2" sx={{ lineHeight: 1.4 }}>
+                {getDescription()}
+              </Typography>
+              {plant.alias && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2 }}>
+                  {plant.alias}
+                </Typography>
+              )}
+            </>
           ) : (
-            // Compact: just name, single line
-            <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
-              {plant.name}
-            </Typography>
+            // Compact: just name, single line with optional alias
+            <>
+              <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
+                {plant.name}
+              </Typography>
+              {plant.alias && (
+                <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block', lineHeight: 1.2 }}>
+                  {plant.alias}
+                </Typography>
+              )}
+            </>
           )}
         </Box>
 
@@ -239,10 +253,17 @@ export default function PlantCard({
               );
             })()
           ) : (
-            // Compact: just name
-            <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 500, lineHeight: 1.3 }}>
-              {plant.name}
-            </Typography>
+            // Compact: just name with optional alias
+            <>
+              <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 500, lineHeight: 1.3 }}>
+                {plant.name}
+              </Typography>
+              {plant.alias && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', lineHeight: 1.2, mt: 0.25 }}>
+                  {plant.alias}
+                </Typography>
+              )}
+            </>
           )}
         </CardContent>
       </CardActionArea>
