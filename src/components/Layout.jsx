@@ -20,7 +20,7 @@ import {
   Divider,
   CircularProgress,
 } from '@mui/material';
-import { Yard, Add, Person, Logout, Login, Settings } from '@mui/icons-material';
+import { Yard, Add, Person, Logout, Login, Settings, AdminPanelSettings } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import CreateListDialog from './CreateListDialog.jsx';
 import AuthDialog from './AuthDialog.jsx';
@@ -33,7 +33,7 @@ export default function Layout({ children, lists = [], onCreateList }) {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   // Auth state
-  const { user, isAuthenticated, loading, signOut } = useAuth();
+  const { user, isAuthenticated, isAdmin, loading, signOut } = useAuth();
   const { profile } = useProfile();
   const [showAuthDialog, setShowAuthDialog] = useState(false);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
@@ -186,6 +186,18 @@ export default function Layout({ children, lists = [], onCreateList }) {
                       <Settings fontSize="small" sx={{ mr: 1 }} />
                       Settings
                     </MenuItem>
+                    {isAdmin && (
+                      <MenuItem
+                        onClick={() => {
+                          handleUserMenuClose();
+                          navigate('/admin');
+                        }}
+                      >
+                        <AdminPanelSettings fontSize="small" sx={{ mr: 1 }} />
+                        Admin Dashboard
+                      </MenuItem>
+                    )}
+                    <Divider />
                     <MenuItem onClick={handleLogout}>
                       <Logout fontSize="small" sx={{ mr: 1 }} />
                       Sign Out
