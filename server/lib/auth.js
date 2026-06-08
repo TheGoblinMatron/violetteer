@@ -33,8 +33,9 @@ const prisma = new PrismaClient();
 const BASE_URL = process.env.BETTER_AUTH_URL || "http://localhost:3001";
 
 // Where the FRONTEND lives — used for trustedOrigins (CORS-equivalent
-// for auth requests). The Vite dev server runs on 5173; prod would
-// add the deployed frontend URL.
+// for auth requests) AND for constructing callback URLs in verification
+// emails. The Vite dev server runs on 5173; prod overrides via env.
+const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:5173";
 const FRONTEND_URLS = [
   "http://localhost:5173",
   process.env.FRONTEND_URL,
@@ -77,12 +78,20 @@ export const auth = betterAuth({
   },
 
   // Email verification: called on signup and when a user requests
-  // a resend. The `url` is a one-time verification link.
+  // a resend. We construct the verification URL ourselves so we can
+  // set a proper callbackURL pointing at the FRONTEND. Without this,
+  // better-auth defaults to BASE_URL (the backend) which has no
+  // route at '/' and shows "Cannot GET /" after verification.
   emailVerification: {
     sendOnSignUp: true,
     autoSignInAfterVerification: true,
-    sendVerificationEmail: async ({ user, url }) => {
-      await sendVerificationEmail({ to: user.email, verifyUrl: url, user });
+    sendVerificationEmail: async ({ user, token }) => {
+      const callbackURL = `${FRONTEND_URL}/email-verified`;
+      const verifyUrl =
+        `${BASE_URL}/api/auth/verify-email` +
+        `?token=${encodeURIComponent(token)}` +
+        `&callbackURL=${encodeURIComponent(callbackURL)}`;
+      await sendVerificationEmail({ to: user.email, verifyUrl, user });
     },
   },
 
