@@ -39,6 +39,8 @@ import {
   YAxis,
   CartesianGrid,
   ReferenceLine,
+  LineChart,
+  Line,
 } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 
@@ -335,6 +337,43 @@ export default function AdminDashboard() {
                 )}
               </Box>
             </Box>
+          </Paper>
+
+          {/* Sticktite by Year Chart */}
+          <Paper sx={{ p: 3, mt: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Sticktite Varieties by Registration Year
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Number of sticktite varieties registered each year
+            </Typography>
+            {stats.sticktiteYearStats && stats.sticktiteYearStats.length > 0 ? (
+              <Box sx={{ height: 300 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={stats.sticktiteYearStats}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="year" />
+                    <YAxis allowDecimals={false} />
+                    <Tooltip contentStyle={{ fontSize: 12, padding: '4px 8px' }} />
+                    <Line
+                      type="monotone"
+                      dataKey="count"
+                      stroke="#8884d8"
+                      strokeWidth={2}
+                      dot={{ fill: '#8884d8', r: 4 }}
+                      name="Varieties"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Box>
+            ) : (
+              <Box sx={{ textAlign: 'center', py: 4 }}>
+                <Typography color="text.secondary">
+                  No sticktite data available.
+                  {!stats.sticktiteYearStats && ' (Field missing from API response - refresh stats)'}
+                </Typography>
+              </Box>
+            )}
           </Paper>
         </>
       ) : null}

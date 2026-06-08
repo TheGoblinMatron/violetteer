@@ -13,6 +13,9 @@
  * 2. Updates the collectionCount field on each Plant
  * 3. Optionally updates lastCollected based on most recent addition
  * 4. Shows distribution statistics
+ *
+ * Join path after the UserPlant refactor:
+ *   Plant -> UserPlant (catalogPlantId) -> ListPlant (userPlantId) -> List (My Collection)
  */
 
 import { PrismaClient } from '@prisma/client';
@@ -35,7 +38,8 @@ async function recalculatePopularity() {
       COALESCE(COUNT(DISTINCT l."userId"), 0)::int as "userCount",
       MAX(lp."dateAdded") as "lastAdded"
     FROM "Plant" p
-    LEFT JOIN "ListPlant" lp ON p.id = lp."plantId"
+    LEFT JOIN "UserPlant" up ON p.id = up."catalogPlantId"
+    LEFT JOIN "ListPlant" lp ON up.id = lp."userPlantId"
     LEFT JOIN "List" l ON lp."listId" = l.id AND l.name = 'My Collection'
     WHERE p."isInCatalog" = true
     GROUP BY p.id

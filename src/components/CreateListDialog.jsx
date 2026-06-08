@@ -24,9 +24,10 @@ const colorOptions = [
   { name: 'Indigo', value: '#3f51b5' },
 ];
 
-export default function CreateListDialog({ open, list, onClose, onSubmit }) {
+export default function CreateListDialog({ open, list, onClose, onSubmit, onDelete }) {
   const isEditing = Boolean(list);
-  
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -51,8 +52,19 @@ export default function CreateListDialog({ open, list, onClose, onSubmit }) {
         color: '#4caf50',
         isPublic: false
       });
+      setConfirmingDelete(false);
     }
   }, [open, list]);
+
+  const handleDelete = () => {
+    if (!confirmingDelete) {
+      setConfirmingDelete(true);
+      return;
+    }
+    onDelete(list.id);
+    setConfirmingDelete(false);
+    onClose();
+  };
 
   const handleChange = (field) => (event) => {
     setFormData({ ...formData, [field]: event.target.value });
@@ -154,7 +166,17 @@ export default function CreateListDialog({ open, list, onClose, onSubmit }) {
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        {isEditing && onDelete && !list?.isDefault && (
+          <Button
+            onClick={handleDelete}
+            color="error"
+            variant={confirmingDelete ? 'contained' : 'text'}
+            sx={{ mr: 'auto' }}
+          >
+            {confirmingDelete ? 'Confirm Delete' : 'Delete List'}
+          </Button>
+        )}
+        <Button onClick={() => { setConfirmingDelete(false); onClose(); }}>Cancel</Button>
         <Button onClick={handleSubmit} variant="contained" color={isEditing ? 'primary' : 'success'}>
           {isEditing ? 'Save Changes' : 'Create List'}
         </Button>

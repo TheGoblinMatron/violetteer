@@ -19,6 +19,19 @@
 
 import { PrismaClient } from '@prisma/client';
 
+// ============================================================
+// STALE-SCHEMA GUARD (2026-06-08)
+// This script writes ListPlant rows directly with plantId, and
+// runs a raw SQL join through ListPlant.plantId. Both broken
+// after the 20260307201829_add_user_plant migration.
+// Update before use: see prisma/seed.js for the new pattern.
+// Short version: create one UserPlant per (userId, catalogPlantId),
+// then ListPlant with userPlantId. Raw SQL: Plant -> UserPlant
+// -> ListPlant -> List. Add userPlant.deleteMany() to cleanup.
+// ============================================================
+console.error('[stale-schema] prisma/generate-test-users.js targets the pre-UserPlant schema and must be updated before use. See header comment.');
+process.exit(1);
+
 const prisma = new PrismaClient();
 
 const TOTAL_USERS = 75;

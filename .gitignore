@@ -36,3 +36,9 @@ Thumbs.db
 
 # Prisma generated
 /src/generated/prisma
+
+# Prisma local dev database (Postgres is canonical; this is leftover)
+prisma/dev.db
+
+# Claude Code local overrides (personal, not shared)
+.claude/settings.local.json

@@ -329,10 +329,8 @@ app.get('/api/users/:username', optionalAuth, async (req, res) => {
     // Calculate stats for the profile
     const [totalPlantsResult, photosContributed, reviewsWritten] = await Promise.all([
       // Count unique plants across all user's lists
-      prisma.listPlant.findMany({
-        where: { list: { userId: user.id } },
-        select: { plantId: true },
-        distinct: ['plantId']
+      prisma.userPlant.count({
+        where: { userId: user.id, listEntries: { some: {} } }
       }),
       // Photos contributed
       prisma.plantPhoto.count({
@@ -345,7 +343,7 @@ app.get('/api/users/:username', optionalAuth, async (req, res) => {
     ]);
 
     const stats = {
-      totalPlants: totalPlantsResult.length,
+      totalPlants: totalPlantsResult,
       publicLists: user.lists.length,
       photosContributed,
       reviewsWritten
@@ -556,26 +554,10 @@ app.get('/api/plants', async (req, res) => {
   }
 });
 
-/**
- * GET plants for autocomplete/search
- *
- * Returns plants the user is allowed to add to their lists:
- * 1. All catalog plants (isInCatalog: true) - public, curated
- * 2. The current user's own custom plants - private to them
- *
- * Does NOT return other users' private custom plants.
- */
-app.get('/api/plants/all', optionalAuth, async (req, res) => {
+app.get('/api/plants/all', async (req, res) => {
   try {
-    const userId = req.user?.id;
-
     const plants = await prisma.plant.findMany({
-      where: {
-        OR: [
-          { isInCatalog: true },                    // Public catalog plants
-          ...(userId ? [{ createdByUserId: userId }] : []),  // User's own custom plants
-        ],
-      },
+      where: { isInCatalog: true },
       orderBy: { name: 'asc' },
     });
     res.json(plants);
@@ -618,7 +600,7 @@ app.get('/api/plants/:id', async (req, res) => {
       // Count how many users have this in their Wishlist
       prisma.listPlant.count({
         where: {
-          plantId,
+          userPlant: { catalogPlantId: plantId },
           list: { name: 'Wishlist' }
         }
       })
@@ -638,30 +620,12 @@ app.get('/api/plants/:id', async (req, res) => {
   }
 });
 
-/**
- * CREATE new plant (user's custom variety)
- *
- * Authenticated users can create custom plants for their personal tracking.
- * These are NOT added to the public catalog - they're private to the user.
- *
- * To add plants to the public catalog, an admin workflow is needed (future feature).
- */
-app.post('/api/plants', requireAuth, async (req, res) => {
+app.post('/api/plants', requireAdmin, async (req, res) => {
   try {
-    // Strip out any attempt to set catalog flags - users can't do that
-    const { isInCatalog, contributionStatus, createdByUserId, description, ...plantData } = req.body;
-
-    // Generate the pre-computed description
+    const { description, ...plantData } = req.body;
     const generatedDescription = generateDescription(plantData);
-
     const plant = await prisma.plant.create({
-      data: {
-        ...plantData,
-        description: generatedDescription,
-        isInCatalog: false,        // User-created plants are never in catalog
-        createdByUserId: req.user.id,  // Track who created it
-        contributionStatus: null,  // Can request contribution later
-      }
+      data: { ...plantData, description: generatedDescription, isInCatalog: true }
     });
     res.json(plant);
   } catch (error) {
@@ -742,7 +706,9 @@ app.get('/api/lists', requireAuth, async (req, res) => {
       include: {
         listPlants: {
           include: {
-            plant: true
+            userPlant: {
+              include: { catalogPlant: true }
+            }
           }
         }
       },
@@ -772,7 +738,9 @@ app.get('/api/lists/:id', requireAuth, async (req, res) => {
       include: {
         listPlants: {
           include: {
-            plant: true
+            userPlant: {
+              include: { catalogPlant: true }
+            }
           }
         }
       }
@@ -876,127 +844,208 @@ app.delete('/api/lists/:id', requireAuth, async (req, res) => {
 // Managing plants within lists - all require auth and ownership verification
 
 /**
- * ADD plant to list
+ * ADD a UserPlant to a list
  *
- * Verifies the user owns the list before adding a plant to it.
- * If adding to "My Collection", updates the plant's collectionCount.
+ * :userPlantId is the ID of the UserPlant record — not a catalog Plant ID.
+ * The frontend is responsible for creating/finding the UserPlant first.
  */
-app.post('/api/lists/:listId/plants/:plantId', requireAuth, async (req, res) => {
+app.post('/api/lists/:listId/user-plants/:userPlantId', requireAuth, async (req, res) => {
   try {
     const listId = parseInt(req.params.listId);
-    const plantId = parseInt(req.params.plantId);
-    const { notes } = req.body;
+    const userPlantId = parseInt(req.params.userPlantId);
 
-    // Verify user owns this list
     const list = await prisma.list.findFirst({
       where: { id: listId, userId: req.user.id }
     });
-    if (!list) {
-      return res.status(404).json({ error: 'List not found' });
-    }
+    if (!list) return res.status(404).json({ error: 'List not found' });
 
-    // Check if plant is already in this list (for upsert logic)
+    // Verify the UserPlant belongs to this user
+    const userPlant = await prisma.userPlant.findFirst({
+      where: { id: userPlantId, userId: req.user.id }
+    });
+    if (!userPlant) return res.status(404).json({ error: 'UserPlant not found' });
+
     const existingEntry = await prisma.listPlant.findUnique({
-      where: { listId_plantId: { listId, plantId } }
+      where: { listId_userPlantId: { listId, userPlantId } }
     });
 
     const listPlant = await prisma.listPlant.upsert({
-      where: {
-        listId_plantId: { listId, plantId }
-      },
-      update: { notes },
-      create: { listId, plantId, notes }
+      where: { listId_userPlantId: { listId, userPlantId } },
+      update: {},
+      create: { listId, userPlantId }
     });
 
-    // If this is the "My Collection" list and we just ADDED (not updated) the plant,
-    // increment the plant's collectionCount for popularity tracking
-    if (list.name === 'My Collection' && !existingEntry) {
+    // Track popularity: if adding to "My Collection" for the first time
+    if (list.name === 'My Collection' && !existingEntry && userPlant.catalogPlantId) {
       await prisma.plant.update({
-        where: { id: plantId },
-        data: {
-          collectionCount: { increment: 1 },
-          lastCollected: new Date()
-        }
+        where: { id: userPlant.catalogPlantId },
+        data: { collectionCount: { increment: 1 }, lastCollected: new Date() }
       });
     }
 
-    res.json(listPlant);
+    res.json({ ...listPlant, userPlant });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
 /**
- * UPDATE notes for plant in list
+ * UPDATE notes on a UserPlant
+ *
+ * Notes live on UserPlant, not ListPlant. :userPlantId identifies which plant.
  */
-app.put('/api/lists/:listId/plants/:plantId', requireAuth, async (req, res) => {
+app.put('/api/user-plants/:userPlantId/notes', requireAuth, async (req, res) => {
   try {
-    const listId = parseInt(req.params.listId);
-    const plantId = parseInt(req.params.plantId);
+    const userPlantId = parseInt(req.params.userPlantId);
     const { notes } = req.body;
 
-    // Verify user owns this list
-    const list = await prisma.list.findFirst({
-      where: { id: listId, userId: req.user.id }
+    const userPlant = await prisma.userPlant.findFirst({
+      where: { id: userPlantId, userId: req.user.id }
     });
-    if (!list) {
-      return res.status(404).json({ error: 'List not found' });
-    }
+    if (!userPlant) return res.status(404).json({ error: 'UserPlant not found' });
 
-    const listPlant = await prisma.listPlant.updateMany({
-      where: { listId, plantId },
-      data: { notes }
+    const updated = await prisma.userPlant.update({
+      where: { id: userPlantId },
+      data: { customNotes: notes }
     });
-    res.json(listPlant);
+    res.json(updated);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
 /**
- * REMOVE plant from list
+ * REMOVE a UserPlant from a list
  *
- * If removing from "My Collection", decrements the plant's collectionCount.
+ * Deletes the ListPlant entry. The UserPlant itself is preserved.
+ * If removing from "My Collection", decrements the catalog plant's popularity count.
  */
-app.delete('/api/lists/:listId/plants/:plantId', requireAuth, async (req, res) => {
+app.delete('/api/lists/:listId/user-plants/:userPlantId', requireAuth, async (req, res) => {
   try {
     const listId = parseInt(req.params.listId);
-    const plantId = parseInt(req.params.plantId);
+    const userPlantId = parseInt(req.params.userPlantId);
 
-    // Verify user owns this list
     const list = await prisma.list.findFirst({
       where: { id: listId, userId: req.user.id }
     });
-    if (!list) {
-      return res.status(404).json({ error: 'List not found' });
-    }
+    if (!list) return res.status(404).json({ error: 'List not found' });
 
-    // Check if plant exists in list before deleting
-    const existingEntry = await prisma.listPlant.findFirst({
-      where: { listId, plantId }
+    const userPlant = await prisma.userPlant.findFirst({
+      where: { id: userPlantId, userId: req.user.id }
+    });
+    if (!userPlant) return res.status(404).json({ error: 'UserPlant not found' });
+
+    const existingEntry = await prisma.listPlant.findUnique({
+      where: { listId_userPlantId: { listId, userPlantId } }
     });
 
-    await prisma.listPlant.deleteMany({
-      where: { listId, plantId }
-    });
+    await prisma.listPlant.deleteMany({ where: { listId, userPlantId } });
 
-    // If this is the "My Collection" list and we actually removed something,
-    // decrement the plant's collectionCount (but never below 0)
-    if (list.name === 'My Collection' && existingEntry) {
+    if (list.name === 'My Collection' && existingEntry && userPlant.catalogPlantId) {
       await prisma.plant.update({
-        where: { id: plantId },
-        data: {
-          collectionCount: { decrement: 1 }
-        }
+        where: { id: userPlant.catalogPlantId },
+        data: { collectionCount: { decrement: 1 } }
       });
-      // Ensure count doesn't go negative (safety check)
       await prisma.plant.updateMany({
-        where: { id: plantId, collectionCount: { lt: 0 } },
+        where: { id: userPlant.catalogPlantId, collectionCount: { lt: 0 } },
         data: { collectionCount: 0 }
       });
     }
 
     res.json({ message: 'Plant removed from list' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===== USER PLANTS =====
+
+/**
+ * GET all UserPlants for the current user
+ */
+app.get('/api/user-plants', requireAuth, async (req, res) => {
+  try {
+    const userPlants = await prisma.userPlant.findMany({
+      where: { userId: req.user.id },
+      include: { catalogPlant: true },
+      orderBy: { createdAt: 'asc' }
+    });
+    res.json(userPlants);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * CREATE a UserPlant
+ * { catalogPlantId } → links to catalog variety (find-or-creates to avoid duplicates)
+ * { customName, ... } → fully custom entry
+ */
+app.post('/api/user-plants', requireAuth, async (req, res) => {
+  try {
+    const { catalogPlantId, customName, customHybridizer, customBlossom, customFoliage, customHabit, customNotes, dateAcquired, sourceNotes } = req.body;
+
+    if (catalogPlantId) {
+      const existing = await prisma.userPlant.findFirst({
+        where: { userId: req.user.id, catalogPlantId: parseInt(catalogPlantId) },
+        include: { catalogPlant: true }
+      });
+      if (existing) return res.json(existing);
+    }
+
+    const userPlant = await prisma.userPlant.create({
+      data: {
+        userId: req.user.id,
+        catalogPlantId: catalogPlantId ? parseInt(catalogPlantId) : null,
+        customName, customHybridizer, customBlossom, customFoliage, customHabit,
+        customNotes, dateAcquired, sourceNotes
+      },
+      include: { catalogPlant: true }
+    });
+
+    res.json(userPlant);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * UPDATE a UserPlant (notes, acquisition date, custom fields)
+ */
+app.put('/api/user-plants/:id', requireAuth, async (req, res) => {
+  try {
+    const userPlantId = parseInt(req.params.id);
+    const existing = await prisma.userPlant.findFirst({
+      where: { id: userPlantId, userId: req.user.id }
+    });
+    if (!existing) return res.status(404).json({ error: 'UserPlant not found' });
+
+    const { customName, customHybridizer, customBlossom, customFoliage, customHabit, customNotes, dateAcquired, sourceNotes } = req.body;
+
+    const updated = await prisma.userPlant.update({
+      where: { id: userPlantId },
+      data: { customName, customHybridizer, customBlossom, customFoliage, customHabit, customNotes, dateAcquired, sourceNotes },
+      include: { catalogPlant: true }
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * DELETE a UserPlant — cascades from all lists automatically
+ */
+app.delete('/api/user-plants/:id', requireAuth, async (req, res) => {
+  try {
+    const userPlantId = parseInt(req.params.id);
+    const existing = await prisma.userPlant.findFirst({
+      where: { id: userPlantId, userId: req.user.id }
+    });
+    if (!existing) return res.status(404).json({ error: 'UserPlant not found' });
+
+    await prisma.userPlant.delete({ where: { id: userPlantId } });
+    res.json({ message: 'UserPlant deleted' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -1214,9 +1263,13 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
         plantTags: {
           where: {
             plant: {
-              listPlants: {
+              userPlants: {
                 some: {
-                  list: { name: 'My Collection' },
+                  listEntries: {
+                    some: {
+                      list: { name: 'My Collection' },
+                    },
+                  },
                 },
               },
             },
@@ -1303,12 +1356,35 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
       where: { isInCatalog: true },
     });
 
+    // 5. Sticktite varieties by registration year
+    const sticktitePlants = await prisma.plant.findMany({
+      where: {
+        isInCatalog: true,
+        blossom: { contains: 'sticktite', mode: 'insensitive' },
+        regDate: { not: null },
+      },
+      select: { regDate: true },
+    });
+
+    const yearCounts = {};
+    for (const { regDate } of sticktitePlants) {
+      const match = regDate.match(/\d{4}/);
+      if (!match) continue;
+      const year = parseInt(match[0], 10);
+      if (year < 1900 || year > new Date().getFullYear()) continue;
+      yearCounts[year] = (yearCounts[year] || 0) + 1;
+    }
+    const sticktiteYearStats = Object.entries(yearCounts)
+      .map(([year, count]) => ({ year: parseInt(year, 10), count }))
+      .sort((a, b) => a.year - b.year);
+
     // Build stats object
     const stats = {
       colorStats,
       totalUsers,
       totalCollectedPlants,
       totalCatalogPlants,
+      sticktiteYearStats,
       computedAt: new Date().toISOString(),
     };
 

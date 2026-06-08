@@ -121,7 +121,7 @@ export default function AddPlantToListDialog({ open, listId, allPlants, allPlant
 
     // Create a new plant with minimal data
     onCreateNew({
-      name: searchQuery.trim()
+      customName: searchQuery.trim()
     }, listId);
     
     setSearchQuery('');
@@ -181,15 +181,6 @@ export default function AddPlantToListDialog({ open, listId, allPlants, allPlant
                             primary={
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                                 <Typography variant="body2">{plant.name}</Typography>
-                                {!plant.isInCatalog && (
-                                  <Chip
-                                    label="My Plant"
-                                    size="small"
-                                    color="primary"
-                                    variant="outlined"
-                                    sx={{ height: 18, '& .MuiChip-label': { px: 0.5, fontSize: '0.65rem' } }}
-                                  />
-                                )}
                               </Box>
                             }
                             secondary={plant.hybridizer || plant.habit}

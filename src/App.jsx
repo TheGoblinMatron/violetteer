@@ -5,6 +5,7 @@
  * All API logic has been extracted into custom hooks:
  * - usePlants() - handles plant catalog CRUD
  * - useLists() - handles user lists and list membership
+ * - useUserPlants() - handles the user's personal plant instances
  *
  * This file now focuses on:
  * 1. Setting up providers (AuthProvider)
@@ -15,7 +16,7 @@
  * AFTER: ~120 lines focused on routing/layout
  */
 import { useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useParams, useNavigate } from 'react-router-dom';
 import Layout from './components/Layout';
 import PlantCatalog from './components/PlantCatalog';
 import ListView from './components/ListView';
@@ -26,6 +27,7 @@ import AdminDashboard from './components/AdminDashboard';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { usePlants } from './hooks/usePlants';
 import { useLists } from './hooks/useLists';
+import { useUserPlants } from './hooks/useUserPlants';
 
 /**
  * App - Root component that sets up providers
@@ -51,17 +53,17 @@ export default function App() {
  */
 function AppContent() {
   const { loading: authLoading } = useAuth();
+  const navigate = useNavigate();
 
   // Use our custom hooks - all the API logic is encapsulated here
   const {
     catalogPlants,
-    allPlants,           // Includes catalog + user's custom plants (for autocomplete)
+    allPlants,           // Includes catalog plants (for autocomplete)
     loading: plantsLoading,
     allPlantsLoading,    // True while lazy-loading all plants
     pagination,          // Pagination metadata { page, limit, total, totalPages }
     fetchCatalogPage,    // Function to fetch a specific page
     fetchAllPlants,      // Lazy-load all plants when needed
-    addPlant,
     updatePlant,
     deletePlant,
     refetch: refetchPlants,
@@ -72,24 +74,28 @@ function AppContent() {
     loading: listsLoading,
     createList,
     updateList,
-    addToList,
-    removeFromList,
-    updateNotes,
+    deleteList,
+    addUserPlantToList,
+    removeUserPlantFromList,
     getListsForPlant,
     refetch: refetchLists,
   } = useLists();
 
-  /**
-   * Create a plant and immediately add it to a list
-   *
-   * This is a "composite" operation that uses both hooks.
-   * It's fine to keep this in App.jsx since it coordinates between domains.
-   */
-  const handleCreatePlantAndAddToList = async (plantData, listId) => {
-    const plant = await addPlant(plantData);
-    if (plant) {
-      await addToList(listId, plant.id);
-    }
+  const {
+    findOrCreateUserPlant,
+    createCustomUserPlant,
+    updateUserPlant,
+    getUserPlantForCatalogPlant,
+  } = useUserPlants();
+
+  const handleAddCatalogPlantToList = async (listId, catalogPlantId) => {
+    const userPlant = await findOrCreateUserPlant(catalogPlantId);
+    if (userPlant) await addUserPlantToList(listId, userPlant.id);
+  };
+
+  const handleCreateCustomUserPlantAndAddToList = async (customData, listId) => {
+    const userPlant = await createCustomUserPlant(customData);
+    if (userPlant) await addUserPlantToList(listId, userPlant.id);
   };
 
   /**
@@ -100,6 +106,11 @@ function AppContent() {
   const handleDeletePlant = async (plantId) => {
     await deletePlant(plantId);
     await refetchLists(); // Lists might have contained this plant
+  };
+
+  const handleDeleteList = async (listId) => {
+    await deleteList(listId);
+    navigate('/');
   };
 
   // Show loading while any data is being fetched
@@ -119,10 +130,10 @@ function AppContent() {
               lists={lists}
               pagination={pagination}
               onPageChange={fetchCatalogPage}
-              onAddPlant={addPlant}
-              onAddToList={addToList}
-              onRemoveFromList={removeFromList}
+              onAddToList={handleAddCatalogPlantToList}
+              onRemoveFromList={removeUserPlantFromList}
               getListsForPlant={getListsForPlant}
+              getUserPlantForCatalogPlant={getUserPlantForCatalogPlant}
             />
           }
         />
@@ -136,11 +147,12 @@ function AppContent() {
               allPlants={allPlants}
               allPlantsLoading={allPlantsLoading}
               fetchAllPlants={fetchAllPlants}
-              onRemoveFromList={removeFromList}
-              onUpdateNotes={updateNotes}
-              onAddToList={addToList}
+              onRemoveFromList={removeUserPlantFromList}
+              onUpdateUserPlant={updateUserPlant}
+              onAddToList={handleAddCatalogPlantToList}
               onUpdateList={updateList}
-              onCreatePlant={handleCreatePlantAndAddToList}
+              onDeleteList={handleDeleteList}
+              onCreateCustomPlant={handleCreateCustomUserPlantAndAddToList}
             />
           }
         />
@@ -154,13 +166,14 @@ function AppContent() {
               allPlantsLoading={allPlantsLoading}
               fetchAllPlants={fetchAllPlants}
               lists={lists}
-              onAddToList={addToList}
-              onRemoveFromList={removeFromList}
-              onUpdateNotes={updateNotes}
+              onAddToList={handleAddCatalogPlantToList}
+              onRemoveFromList={removeUserPlantFromList}
+              onUpdateUserPlant={updateUserPlant}
               onUpdatePlant={updatePlant}
               onDeletePlant={handleDeletePlant}
               onCreateList={createList}
               getListsForPlant={getListsForPlant}
+              getUserPlantForCatalogPlant={getUserPlantForCatalogPlant}
             />
           }
         />
@@ -189,7 +202,7 @@ function AppContent() {
  * OPTIMIZATION: Triggers lazy-loading of all plants when visiting a list.
  * This data is needed for the "Add Plant" dialog's autocomplete.
  */
-function ListViewWrapper({ lists, allPlants, allPlantsLoading, fetchAllPlants, onRemoveFromList, onUpdateNotes, onAddToList, onUpdateList, onCreatePlant }) {
+function ListViewWrapper({ lists, allPlants, allPlantsLoading, fetchAllPlants, onRemoveFromList, onUpdateUserPlant, onAddToList, onUpdateList, onDeleteList, onCreateCustomPlant }) {
   const { id } = useParams();
   const list = lists.find(l => l.id === parseInt(id));
 
@@ -209,10 +222,11 @@ function ListViewWrapper({ lists, allPlants, allPlantsLoading, fetchAllPlants, o
       allPlants={allPlants}
       allPlantsLoading={allPlantsLoading}
       onRemoveFromList={onRemoveFromList}
-      onUpdateNotes={onUpdateNotes}
+      onUpdateUserPlant={onUpdateUserPlant}
       onAddToList={onAddToList}
       onUpdateList={onUpdateList}
-      onCreatePlant={onCreatePlant}
+      onDeleteList={onDeleteList}
+      onCreateCustomPlant={onCreateCustomPlant}
       lists={lists}
     />
   );
@@ -224,7 +238,7 @@ function ListViewWrapper({ lists, allPlants, allPlantsLoading, fetchAllPlants, o
  * OPTIMIZATION: Triggers lazy-loading of all plants when visiting a plant detail.
  * This ensures custom plants (not in catalog) can be found.
  */
-function PlantDetailWrapper({ allPlants, allPlantsLoading, fetchAllPlants, lists, onAddToList, onRemoveFromList, onUpdateNotes, onUpdatePlant, onDeletePlant, onCreateList, getListsForPlant }) {
+function PlantDetailWrapper({ allPlants, allPlantsLoading, fetchAllPlants, lists, onAddToList, onRemoveFromList, onUpdateUserPlant, onUpdatePlant, onDeletePlant, onCreateList, getListsForPlant, getUserPlantForCatalogPlant }) {
   // Trigger lazy-load of all plants when user visits plant detail
   useEffect(() => {
     fetchAllPlants();
@@ -245,11 +259,12 @@ function PlantDetailWrapper({ allPlants, allPlantsLoading, fetchAllPlants, lists
       lists={lists}
       onAddToList={onAddToList}
       onRemoveFromList={onRemoveFromList}
-      onUpdateNotes={onUpdateNotes}
+      onUpdateUserPlant={onUpdateUserPlant}
       onUpdatePlant={onUpdatePlant}
       onDeletePlant={onDeletePlant}
       onCreateList={onCreateList}
       getListsForPlant={getListsForPlant}
+      getUserPlantForCatalogPlant={getUserPlantForCatalogPlant}
     />
   );
 }

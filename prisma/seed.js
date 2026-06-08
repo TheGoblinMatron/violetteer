@@ -20,6 +20,7 @@ async function main() {
   await prisma.review.deleteMany();
   await prisma.plantPhoto.deleteMany();
   await prisma.listPlant.deleteMany();
+  await prisma.userPlant.deleteMany();
   await prisma.list.deleteMany();
   await prisma.plant.deleteMany();
   await prisma.session.deleteMany();
@@ -376,62 +377,76 @@ async function main() {
     })
   ]);
 
-  // Add some plants to My Collection
-  await prisma.listPlant.create({
-    data: {
-      listId: myCollectionList.id,
-      plantId: plants[0].id,
-      notes: 'Bloomed beautifully last spring!'
+  /**
+   * Create UserPlants — the demo user's personal plant instances.
+   *
+   * UserPlant is the "user-violet": notes, dateAcquired, sourceNotes etc.
+   * all live here, NOT on ListPlant. One UserPlant can appear in multiple
+   * lists; the getOrCreate helper enforces that (one per catalogPlantId
+   * per user).
+   */
+  const userPlantByCatalog = new Map();
+
+  async function getOrCreateUserPlant(catalogPlant, fields = {}) {
+    if (userPlantByCatalog.has(catalogPlant.id)) {
+      return userPlantByCatalog.get(catalogPlant.id);
     }
-  });
-  await prisma.listPlant.create({
+    const up = await prisma.userPlant.create({
+      data: {
+        userId: demoUser.id,
+        catalogPlantId: catalogPlant.id,
+        ...fields,
+      },
+    });
+    userPlantByCatalog.set(catalogPlant.id, up);
+    return up;
+  }
+
+  // A custom UserPlant (catalogPlantId: null) to exercise that code path.
+  const mysterySport = await prisma.userPlant.create({
     data: {
-      listId: myCollectionList.id,
-      plantId: plants[1].id,
-      notes: 'Needs more light'
-    }
-  });
-  await prisma.listPlant.create({
-    data: {
-      listId: myCollectionList.id,
-      plantId: plants[4].id
-    }
-  });
-  await prisma.listPlant.create({
-    data: {
-      listId: myCollectionList.id,
-      plantId: plants[6].id
-    }
-  });
-  await prisma.listPlant.create({
-    data: {
-      listId: myCollectionList.id,
-      plantId: plants[11].id,
-      notes: 'Gift from Mom, started from leaf cutting'
-    }
+      userId: demoUser.id,
+      customName: 'Mystery Sport',
+      customHybridizer: 'Unknown (sport)',
+      customBlossom: 'Streaked pink on white, fantasy',
+      customFoliage: 'Medium green, plain',
+      customNotes: 'Unidentified sport from a Moonlight Serenade leaf pull.',
+      sourceNotes: 'Sara, March 2025',
+    },
   });
 
-  // Add some plants to Wishlist
+  // Populate My Collection
+  // (Notes previously on ListPlant now live on UserPlant.customNotes.)
+  const myCollectionEntries = [
+    { plant: plants[0],  notes: 'Bloomed beautifully last spring!' },
+    { plant: plants[1],  notes: 'Needs more light' },
+    { plant: plants[4],  notes: null },
+    { plant: plants[6],  notes: null },
+    { plant: plants[11], notes: 'Gift from Mom, started from leaf cutting' },
+  ];
+
+  for (const { plant, notes } of myCollectionEntries) {
+    const up = await getOrCreateUserPlant(plant, { customNotes: notes });
+    await prisma.listPlant.create({
+      data: { listId: myCollectionList.id, userPlantId: up.id },
+    });
+  }
+
+  // The custom mystery sport is in My Collection too.
   await prisma.listPlant.create({
-    data: {
-      listId: wishlistList.id,
-      plantId: plants[3].id
-    }
-  });
-  await prisma.listPlant.create({
-    data: {
-      listId: wishlistList.id,
-      plantId: plants[8].id
-    }
-  });
-  await prisma.listPlant.create({
-    data: {
-      listId: wishlistList.id,
-      plantId: plants[14].id
-    }
+    data: { listId: myCollectionList.id, userPlantId: mysterySport.id },
   });
 
-  console.log('Database seeded with lists, plants, and list entries!');
+  // Populate Wishlist (no personal notes here — these are aspirational)
+  const wishlistEntries = [plants[3], plants[8], plants[14]];
+  for (const p of wishlistEntries) {
+    const up = await getOrCreateUserPlant(p);
+    await prisma.listPlant.create({
+      data: { listId: wishlistList.id, userPlantId: up.id },
+    });
+  }
+
+  console.log('Database seeded with lists, plants, user-plants, and list entries!');
 }
 
 main()

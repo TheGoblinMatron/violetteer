@@ -60,6 +60,7 @@ model User {
   lists      List[]
   photos     PlantPhoto[]
   reviews    Review[]
+  userPlants UserPlant[]
 }
 
 /**
@@ -162,7 +163,7 @@ model Plant {
   updatedAt             DateTime  @updatedAt
 
   // Relations
-  listPlants            ListPlant[]
+  userPlants            UserPlant[]   // Users who own an instance of this variety
   userPhotos            PlantPhoto[]
   reviews               Review[]
   plantTags             PlantTag[]
@@ -187,18 +188,58 @@ model List {
 }
 
 model ListPlant {
-  id          Int      @id @default(autoincrement())
-  listId      Int
-  plantId     Int
-  notes       String?  // User's personal/private notes
-  dateAdded   DateTime @default(now())
-  createdAt   DateTime @default(now())
+  id            Int       @id @default(autoincrement())
+  listId        Int
+  userPlantId   Int
+  dateAdded     DateTime  @default(now())
+  createdAt     DateTime  @default(now())
 
   // Relations
-  list        List     @relation(fields: [listId], references: [id], onDelete: Cascade)
-  plant       Plant    @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  list          List      @relation(fields: [listId], references: [id], onDelete: Cascade)
+  userPlant     UserPlant @relation(fields: [userPlantId], references: [id], onDelete: Cascade)
 
-  @@unique([listId, plantId]) // Plant can only be in a list once
+  @@unique([listId, userPlantId]) // A user-violet can only be in a given list once
+}
+
+/**
+ * UserPlant - A user's personal instance of a violet
+ *
+ * This is the "user-violet": a specific physical plant that a user owns or tracks.
+ * It can either reference a catalog variety (catalogPlantId set) or be a fully
+ * custom entry the user created themselves (catalogPlantId null, customName set).
+ *
+ * One UserPlant can belong to multiple Lists via ListPlant.
+ * Notes and personal data live here, not on ListPlant.
+ */
+model UserPlant {
+  id               Int       @id @default(autoincrement())
+  userId           String    // Always owned by a specific user
+
+  // Optional link to a catalog variety (null = fully custom entry)
+  catalogPlantId   Int?
+
+  // Custom fields — used when catalogPlantId is null, or to store personal overrides
+  customName       String?
+  customHybridizer String?
+  customBlossom    String?
+  customFoliage    String?
+  customHabit      String?
+
+  // Personal tracking
+  customNotes      String?   // Notes about this specific plant instance
+  dateAcquired     DateTime?
+  sourceNotes      String?   // e.g., "Leaf pull from Sara, March 2025"
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Relations
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  catalogPlant     Plant?    @relation(fields: [catalogPlantId], references: [id], onDelete: SetNull)
+  listEntries      ListPlant[]
+
+  @@index([userId])
+  @@index([catalogPlantId])
 }
 
 model PlantPhoto {

@@ -26,6 +26,18 @@
 import { PrismaClient } from '@prisma/client';
 import { generateDescription } from '../server/lib/plantDescription.js';
 
+// ============================================================
+// STALE-SCHEMA GUARD (2026-06-08)
+// This script writes ListPlant.plantId and ListPlant.notes, both
+// dropped by the 20260307201829_add_user_plant migration.
+// Update before use: see prisma/seed.js for the new pattern.
+// Short version: create UserPlant rows first, then ListPlant
+// with userPlantId. Raw SQL joins must route Plant -> UserPlant
+// -> ListPlant -> List. Add userPlant.deleteMany() to cleanup.
+// ============================================================
+console.error('[stale-schema] prisma/generate-all-data.js targets the pre-UserPlant schema and must be updated before use. See header comment.');
+process.exit(1);
+
 const prisma = new PrismaClient();
 
 // ============================================

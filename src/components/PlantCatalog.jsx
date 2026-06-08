@@ -46,9 +46,9 @@ export default function PlantCatalog({
   lists,
   pagination,      // { page, limit, total, totalPages }
   onPageChange,    // (page, search) => void
-  onAddPlant,
   onAddToList,
   onRemoveFromList,
+  getUserPlantForCatalogPlant,
 }) {
   const { isAdmin } = useAuth();
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -108,20 +108,20 @@ export default function PlantCatalog({
     onPageChange(currentPage, activeFilters, sortBy, selectedTags, hasPhotosOnly);
   }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleAddPlant = (newPlant) => {
-    onAddPlant(newPlant);
+  const handleAddPlant = (_newPlant) => {
     setShowAddDialog(false);
   };
 
   // Helper functions for list management
   const isPlantInList = (plantId, listId) => {
     const list = lists.find((l) => l.id === listId);
-    return list?.listPlants?.some((lp) => lp.plantId === plantId) || false;
+    return list?.listPlants?.some((lp) => lp.userPlant?.catalogPlantId === plantId) || false;
   };
 
   const handleToggleList = async (plantId, listId) => {
     if (isPlantInList(plantId, listId)) {
-      await onRemoveFromList(listId, plantId);
+      const userPlant = getUserPlantForCatalogPlant(plantId);
+      if (userPlant) await onRemoveFromList(listId, userPlant.id);
     } else {
       await onAddToList(listId, plantId);
     }

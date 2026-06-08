@@ -1,5 +1,5 @@
 // PlantFormDialog.jsx - Dialog for adding/editing African violets with expandable fields
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -29,7 +29,7 @@ const habitOptions = [
   'Saintpaulia species'
 ];
 
-export default function PlantFormDialog({ open, plant, onClose, onSubmit }) {
+export default function PlantFormDialog({ open, plant, onClose, onSubmit, onImageUploaded }) {
   const isEditing = Boolean(plant);
   
   const [formData, setFormData] = useState({
@@ -48,6 +48,7 @@ export default function PlantFormDialog({ open, plant, onClose, onSubmit }) {
   });
 
   const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (plant) {
@@ -87,41 +88,49 @@ export default function PlantFormDialog({ open, plant, onClose, onSubmit }) {
     setFormData({ ...formData, [field]: event.target.value });
   };
 
-  const handleImageUpload = () => {
-    if (!window.cloudinary) {
-      alert('Cloudinary not loaded. Make sure the script is in index.html');
+  const handleImageUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // For new plants, we need to save first to get an ID
+    if (!isEditing) {
+      alert('Please save the cultivar first, then edit it to add a photo.');
       return;
     }
 
-    const widget = window.cloudinary.createUploadWidget(
-      {
-        cloudName: 'YOUR_CLOUD_NAME', // Replace with your cloud name
-        uploadPreset: 'YOUR_UPLOAD_PRESET', // Replace with your preset
-        folder: 'african-violets',
-        sources: ['local', 'camera'],
-        multiple: false,
-        maxFileSize: 10000000,
-        clientAllowedFormats: ['jpg', 'jpeg', 'png', 'webp'],
-        cropping: true,
-        croppingAspectRatio: 1.5,
-        showSkipCropButton: false
-      },
-      (error, result) => {
-        if (error) {
-          console.error('Upload error:', error);
-          setUploading(false);
-          return;
-        }
-        
-        if (result && result.event === 'success') {
-          setFormData(prev => ({ ...prev, imageUrl: result.info.secure_url }));
-          setUploading(false);
-        }
-      }
-    );
-    
     setUploading(true);
-    widget.open();
+
+    try {
+      const uploadData = new FormData();
+      uploadData.append('photo', file);
+
+      const response = await fetch(`http://localhost:3001/api/plants/${plant.id}/photos/upload`, {
+        method: 'POST',
+        credentials: 'include',
+        body: uploadData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const result = await response.json();
+      // Use the main image URL from the upload
+      setFormData(prev => ({ ...prev, imageUrl: result.imageUrl }));
+      // Notify parent to refresh plant data
+      if (onImageUploaded) {
+        onImageUploaded(result);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Failed to upload image. Please try again.');
+    } finally {
+      setUploading(false);
+      // Reset file input so the same file can be selected again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleSubmit = () => {
@@ -278,13 +287,25 @@ export default function PlantFormDialog({ open, plant, onClose, onSubmit }) {
               Violet Photo
             </Typography>
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 1 }}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageUpload}
+                accept="image/*"
+                style={{ display: 'none' }}
+              />
               <Button
                 variant="outlined"
-                onClick={handleImageUpload}
-                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading || !isEditing}
               >
                 {uploading ? 'Uploading...' : 'Upload Photo'}
               </Button>
+              {!isEditing && (
+                <Typography variant="caption" color="text.secondary">
+                  Save first to enable photo upload
+                </Typography>
+              )}
               {formData.imageUrl && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Box

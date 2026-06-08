@@ -41,11 +41,12 @@ export default function PlantDetail({
   lists,
   onAddToList,
   onRemoveFromList,
-  onUpdateNotes,
+  onUpdateUserPlant,
   onUpdatePlant,
   onDeletePlant,
   onCreateList,
   getListsForPlant,
+  getUserPlantForCatalogPlant,
 }) {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -59,25 +60,30 @@ export default function PlantDetail({
   const basePlant = plants.find((p) => p.id === parseInt(id));
 
   // Fetch detailed plant data including wishlistCount
-  useEffect(() => {
-    const fetchPlantDetails = async () => {
-      try {
-        const response = await fetch(`http://localhost:3001/api/plants/${id}`, {
-          credentials: 'include',
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setPlantDetails(data);
-        }
-      } catch (error) {
-        console.error('Error fetching plant details:', error);
+  const fetchPlantDetails = async () => {
+    try {
+      const response = await fetch(`http://localhost:3001/api/plants/${id}`, {
+        credentials: 'include',
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setPlantDetails(data);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching plant details:', error);
+    }
+  };
 
+  useEffect(() => {
     if (id) {
       fetchPlantDetails();
     }
   }, [id]);
+
+  // Refresh plant data after image upload
+  const handleImageUploaded = () => {
+    fetchPlantDetails();
+  };
 
   // Merge base plant data with detailed data (detailed takes priority)
   const plant = plantDetails || basePlant;
@@ -90,7 +96,11 @@ export default function PlantDetail({
   };
 
   const handleSaveNotes = async (listId, plantId, listPlantId) => {
-    await onUpdateNotes(listId, plantId, notesValues[listPlantId]);
+    const list = lists.find((l) => l.id === listId);
+    const listPlant = list?.listPlants?.find((lp) => lp.userPlant?.catalogPlantId === plantId);
+    if (listPlant?.userPlant) {
+      await onUpdateUserPlant(listPlant.userPlant.id, { customNotes: notesValues[listPlantId] });
+    }
     setEditingNotes({ ...editingNotes, [listPlantId]: false });
   };
 
@@ -114,7 +124,8 @@ export default function PlantDetail({
   // List toggle handler
   const handleToggleList = async (listId) => {
     if (plantListIds.includes(listId)) {
-      await onRemoveFromList(listId, plant.id);
+      const userPlant = getUserPlantForCatalogPlant(plant.id);
+      if (userPlant) await onRemoveFromList(listId, userPlant.id);
     } else {
       await onAddToList(listId, plant.id);
     }
@@ -402,7 +413,7 @@ export default function PlantDetail({
 
               {lists.map((list) => {
                 const isInList = plantListIds.includes(list.id);
-                const listPlant = list.listPlants?.find((lp) => lp.plantId === plant.id);
+                const listPlant = list.listPlants?.find((lp) => lp.userPlant?.catalogPlantId === plant.id);
 
                 return (
                   <Box key={list.id} sx={{ mt: 1.5 }}>
@@ -443,20 +454,20 @@ export default function PlantDetail({
                     </Box>
 
                     {/* Inline notes for lists the plant is in */}
-                    {isInList && listPlant && (
+                    {isInList && listPlant && listPlant.userPlant && (
                       <Box sx={{ ml: 3.5, mt: 0.5 }}>
-                        {editingNotes[listPlant.id] ? (
+                        {editingNotes[listPlant.userPlant.id] ? (
                           <Box>
                             <TextField
                               fullWidth
                               size="small"
                               multiline
                               rows={2}
-                              value={notesValues[listPlant.id] || ''}
+                              value={notesValues[listPlant.userPlant.id] || ''}
                               onChange={(e) =>
                                 setNotesValues({
                                   ...notesValues,
-                                  [listPlant.id]: e.target.value,
+                                  [listPlant.userPlant.id]: e.target.value,
                                 })
                               }
                               placeholder="Add notes..."
@@ -467,7 +478,7 @@ export default function PlantDetail({
                                 size="small"
                                 variant="contained"
                                 onClick={() =>
-                                  handleSaveNotes(list.id, plant.id, listPlant.id)
+                                  handleSaveNotes(list.id, plant.id, listPlant.userPlant.id)
                                 }
                                 sx={{ minWidth: 0, px: 1.5 }}
                               >
@@ -475,7 +486,7 @@ export default function PlantDetail({
                               </Button>
                               <Button
                                 size="small"
-                                onClick={() => handleCancelEdit(listPlant.id)}
+                                onClick={() => handleCancelEdit(listPlant.userPlant.id)}
                                 sx={{ minWidth: 0, px: 1 }}
                               >
                                 Cancel
@@ -488,14 +499,14 @@ export default function PlantDetail({
                             color="text.secondary"
                             sx={{
                               cursor: 'pointer',
-                              fontStyle: listPlant.notes ? 'normal' : 'italic',
+                              fontStyle: listPlant.userPlant?.customNotes ? 'normal' : 'italic',
                               '&:hover': { textDecoration: 'underline' },
                             }}
                             onClick={() =>
-                              handleStartEditNotes(listPlant.id, listPlant.notes)
+                              handleStartEditNotes(listPlant.userPlant.id, listPlant.userPlant?.customNotes)
                             }
                           >
-                            {listPlant.notes || 'Add notes...'}
+                            {listPlant.userPlant?.customNotes || 'Add notes...'}
                           </Typography>
                         )}
                       </Box>
@@ -523,6 +534,7 @@ export default function PlantDetail({
         plant={plant}
         onClose={() => setShowEditDialog(false)}
         onSubmit={handleUpdate}
+        onImageUploaded={handleImageUploaded}
       />
 
       <CreateListDialog

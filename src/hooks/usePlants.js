@@ -140,41 +140,6 @@ export function usePlants() {
   }, [fetchPlants]);
 
   /**
-   * Add a new custom plant (user's private variety)
-   *
-   * Creates a plant that belongs to the current user but is NOT
-   * in the public catalog. Only visible to this user in searches.
-   *
-   * @param {Object} plantData - Plant fields (name, hybridizer, etc.)
-   * @returns {Object|null} The created plant or null on error
-   */
-  const addPlant = async (plantData) => {
-    try {
-      const response = await fetch(`${API_URL}/plants`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', // Required - endpoint needs auth
-        body: JSON.stringify(plantData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to add plant');
-      }
-
-      const newPlant = await response.json();
-
-      // Add to allPlants (for autocomplete) but NOT catalogPlants
-      // since user-created plants aren't in the public catalog
-      setAllPlants((prev) => [...prev, newPlant]);
-
-      return newPlant;
-    } catch (error) {
-      console.error('Error adding plant:', error);
-      return null;
-    }
-  };
-
-  /**
    * Update an existing plant
    *
    * @param {Object} plantData - Plant fields including id
@@ -253,7 +218,6 @@ export function usePlants() {
     fetchAllPlants,      // Call this when you need allPlants data
 
     // CRUD operations
-    addPlant,
     updatePlant,
     deletePlant,
 
