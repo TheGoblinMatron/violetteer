@@ -9,6 +9,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "install:safe": "npm install && npm rebuild --ignore-scripts=false @prisma/client @prisma/engines better-sqlite3 esbuild fsevents prisma sharp && echo '\\n✓ install:safe complete — trusted native packages rebuilt'",
+    "audit:weekly": "echo '=== npm audit ===' && npm audit; echo '\\n=== npm outdated ===' && npm outdated; true",
     "generate-all": "node prisma/generate-all-data.js",
     "import-real-data": "node prisma/import-firstclass-data.js",
     "generate-test-data": "node prisma/generate-test-data.js",
