@@ -22,10 +22,30 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { createAuthMiddleware } from "better-auth/api";
 import { PrismaClient } from "@prisma/client";
+import { sendPasswordReset, sendVerificationEmail } from "./email.js";
 
 const prisma = new PrismaClient();
 
+// Where the app lives — used by better-auth for absolute URLs in
+// callbacks, password-reset links, verification links, etc.
+// In dev this is the backend port; in prod this would be e.g.
+// https://violetteer.com (configured via .env).
+const BASE_URL = process.env.BETTER_AUTH_URL || "http://localhost:3001";
+
+// Where the FRONTEND lives — used for trustedOrigins (CORS-equivalent
+// for auth requests). The Vite dev server runs on 5173; prod would
+// add the deployed frontend URL.
+const FRONTEND_URLS = [
+  "http://localhost:5173",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
+
 export const auth = betterAuth({
+  // The canonical URL where this auth instance is reachable. Used to
+  // build absolute reset/verify links in emails. Required for prod
+  // deployments — better-auth warns if absent.
+  baseURL: BASE_URL,
+
   // Database configuration - uses your existing Prisma setup
   database: prismaAdapter(prisma, {
     provider: "postgresql",
@@ -44,16 +64,31 @@ export const auth = betterAuth({
   },
 
   // Enable email/password authentication
-  // This is the simplest form - user registers with email + password
   emailAndPassword: {
     enabled: true,
-    // You could add email verification later:
-    // requireEmailVerification: true,
+    // Users must verify their email before they can sign in.
+    requireEmailVerification: true,
+    // Wire up password reset — called when a user submits the
+    // forgot-password form. The `url` is a one-time reset link
+    // valid for ~1 hour (better-auth's default).
+    sendResetPassword: async ({ user, url }) => {
+      await sendPasswordReset({ to: user.email, resetUrl: url, user });
+    },
   },
 
-  // Frontend URLs that are allowed to make auth requests
-  // In development, this is your Vite dev server
-  trustedOrigins: ["http://localhost:5173"],
+  // Email verification: called on signup and when a user requests
+  // a resend. The `url` is a one-time verification link.
+  emailVerification: {
+    sendOnSignUp: true,
+    autoSignInAfterVerification: true,
+    sendVerificationEmail: async ({ user, url }) => {
+      await sendVerificationEmail({ to: user.email, verifyUrl: url, user });
+    },
+  },
+
+  // Frontend URLs that are allowed to make auth requests.
+  // Add prod frontend origin via FRONTEND_URL env var when deploying.
+  trustedOrigins: FRONTEND_URLS,
 
   // Session configuration
   session: {

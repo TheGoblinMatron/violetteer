@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 import { PrismaClient } from '@prisma/client';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './lib/auth.js';
@@ -64,8 +65,29 @@ app.use(express.json());
  * For Express 5, we need to use the router.use() pattern
  * to properly mount a catch-all handler.
  */
+/**
+ * Rate-limit /api/auth/* to slow brute-force attempts at sign-in,
+ * password-reset email enumeration, and verification-resend spam.
+ *
+ * 30 requests / 15 min / IP is generous enough for legitimate users
+ * (a signup flow only touches /sign-up, /verify, /get-session) but
+ * tight enough that brute force is unworkable.
+ *
+ * trustProxy is read from app.set('trust proxy', ...) — currently
+ * unset, so the limiter uses req.ip which is the direct connection.
+ * When deploying behind a proxy (DO App Platform, nginx, etc.), set
+ * `app.set('trust proxy', 1)` so the limiter sees the real client IP.
+ */
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again in a few minutes.' },
+});
+
 const authHandler = toNodeHandler(auth);
-app.use('/api/auth', (req, res, next) => {
+app.use('/api/auth', authLimiter, (req, res, next) => {
   // Better Auth expects the path without the /api/auth prefix
   // but since we're mounting at /api/auth, the full URL is preserved
   authHandler(req, res);

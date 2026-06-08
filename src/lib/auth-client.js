@@ -26,8 +26,11 @@ export const authClient = createAuthClient({
 
 // Destructure the methods we'll use throughout the app
 export const {
-  signIn,   // signIn.email({ email, password })
-  signUp,   // signUp.email({ email, password, name })
-  signOut,  // signOut()
-  useSession, // React hook: const { data: session, isPending } = useSession()
+  signIn,             // signIn.email({ email, password })
+  signUp,             // signUp.email({ email, password, name })
+  signOut,            // signOut()
+  useSession,         // React hook: const { data: session, isPending } = useSession()
+  forgetPassword,     // forgetPassword({ email, redirectTo })
+  resetPassword,      // resetPassword({ newPassword, token })
+  sendVerificationEmail, // sendVerificationEmail({ email, callbackURL })
 } = authClient;

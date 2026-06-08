@@ -12,6 +12,7 @@
  */
 
 import { useState } from 'react';
+import { Link as RouterLink } from 'react-router-dom';
 import {
   Dialog,
   DialogTitle,
@@ -24,6 +25,8 @@ import {
   Tabs,
   Tab,
   CircularProgress,
+  Link,
+  Typography,
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 
@@ -39,6 +42,9 @@ export default function AuthDialog({ open, onClose }) {
   // UI state
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // After successful signup, show "check your email" instead of closing —
+  // the user can't sign in until they verify their address.
+  const [signedUpEmail, setSignedUpEmail] = useState('');
 
   // Get auth functions from context
   const { signIn, signUp } = useAuth();
@@ -59,14 +65,15 @@ export default function AuthDialog({ open, onClose }) {
       if (tab === 0) {
         // Login
         await signIn(email, password);
+        // Success - reset form and close
+        resetForm();
+        onClose();
       } else {
-        // Register
+        // Register — does NOT sign user in because email verification
+        // is required. Show "check your email" message instead.
         await signUp(email, password, name || email.split('@')[0]);
+        setSignedUpEmail(email);
       }
-
-      // Success - reset form and close
-      resetForm();
-      onClose();
     } catch (err) {
       setError(err.message || 'An error occurred');
     } finally {
@@ -83,6 +90,7 @@ export default function AuthDialog({ open, onClose }) {
     setName('');
     setError('');
     setTab(0);
+    setSignedUpEmail('');
   };
 
   /**
@@ -94,6 +102,28 @@ export default function AuthDialog({ open, onClose }) {
       onClose();
     }
   };
+
+  // Post-signup verify-email view
+  if (signedUpEmail) {
+    return (
+      <Dialog open={open} onClose={handleClose} maxWidth="xs" fullWidth>
+        <DialogTitle>Check your email</DialogTitle>
+        <DialogContent>
+          <Alert severity="success" sx={{ mt: 1 }}>
+            We sent a verification link to <strong>{signedUpEmail}</strong>.
+            Click the link in the email to activate your account.
+          </Alert>
+          <Typography variant="body2" sx={{ mt: 2, color: 'text.secondary' }}>
+            Didn&apos;t get the email? Check your spam folder. The link expires
+            after 24 hours; you can sign up again with the same email if needed.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleClose} variant="contained">Got it</Button>
+        </DialogActions>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog
@@ -165,6 +195,20 @@ export default function AuthDialog({ open, onClose }) {
             helperText={tab === 1 ? 'At least 8 characters' : ''}
             disabled={loading}
           />
+
+          {/* Forgot password link — only on the sign-in tab */}
+          {tab === 0 && (
+            <Box sx={{ textAlign: 'right', mt: 1 }}>
+              <Link
+                component={RouterLink}
+                to="/forgot-password"
+                onClick={handleClose}
+                variant="body2"
+              >
+                Forgot password?
+              </Link>
+            </Box>
+          )}
         </DialogContent>
 
         <DialogActions sx={{ px: 3, pb: 2 }}>

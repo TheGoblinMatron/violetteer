@@ -24,6 +24,9 @@ import PlantDetail from './components/PlantDetail';
 import SettingsPage from './components/SettingsPage';
 import PublicProfilePage from './components/PublicProfilePage';
 import AdminDashboard from './components/AdminDashboard';
+import ForgotPasswordPage from './components/ForgotPasswordPage';
+import ResetPasswordPage from './components/ResetPasswordPage';
+import EmailVerifiedPage from './components/EmailVerifiedPage';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { usePlants } from './hooks/usePlants';
 import { useLists } from './hooks/useLists';
@@ -186,6 +189,11 @@ function AppContent() {
 
         {/* Admin dashboard (admin only) */}
         <Route path="/admin" element={<AdminDashboard />} />
+
+        {/* Auth pages — landings from email links */}
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/email-verified" element={<EmailVerifiedPage />} />
       </Routes>
     </Layout>
   );
