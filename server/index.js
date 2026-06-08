@@ -512,7 +512,6 @@ app.get('/api/plants', async (req, res) => {
     }
 
     const where = {
-      isInCatalog: true,
       ...(andConditions.length > 0 && { AND: andConditions }),
     };
 
@@ -557,7 +556,6 @@ app.get('/api/plants', async (req, res) => {
 app.get('/api/plants/all', async (req, res) => {
   try {
     const plants = await prisma.plant.findMany({
-      where: { isInCatalog: true },
       orderBy: { name: 'asc' },
     });
     res.json(plants);
@@ -625,7 +623,7 @@ app.post('/api/plants', requireAdmin, async (req, res) => {
     const { description, ...plantData } = req.body;
     const generatedDescription = generateDescription(plantData);
     const plant = await prisma.plant.create({
-      data: { ...plantData, description: generatedDescription, isInCatalog: true }
+      data: { ...plantData, description: generatedDescription }
     });
     res.json(plant);
   } catch (error) {
@@ -1295,9 +1293,6 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
         displayName: true,
         color: true,
         plantTags: {
-          where: {
-            plant: { isInCatalog: true },
-          },
           select: { plantId: true },
         },
       },
@@ -1352,14 +1347,11 @@ app.get('/api/admin/stats', requireAdmin, async (req, res) => {
     });
 
     // 4. Total catalog plants
-    const totalCatalogPlants = await prisma.plant.count({
-      where: { isInCatalog: true },
-    });
+    const totalCatalogPlants = await prisma.plant.count();
 
     // 5. Sticktite varieties by registration year
     const sticktitePlants = await prisma.plant.findMany({
       where: {
-        isInCatalog: true,
         blossom: { contains: 'sticktite', mode: 'insensitive' },
         regDate: { not: null },
       },

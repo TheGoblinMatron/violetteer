@@ -150,7 +150,6 @@ model Plant {
   description           String?   // Pre-computed: "Name (regNum) MM/DD/YYYY (hybridizer) blossom. foliage. habit."
 
   // Catalog management
-  isInCatalog           Boolean   @default(false)
   createdByUserId       String?
   contributionStatus    String?   // null, 'pending', 'approved', 'rejected'
 

@@ -87,8 +87,7 @@ async function main() {
         blossom: 'Double white star with pale blue center.',
         foliage: 'Medium green, plain, quilted.',
         vintage: '2015',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464170/african-violets/wusp0r7qmypjkw3ah1zb.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464170/african-violets/wusp0r7qmypjkw3ah1zb.jpg'
       }
     }),
     prisma.plant.create({
@@ -102,8 +101,7 @@ async function main() {
         blossom: 'Semidouble raspberry-red frilled star with white edge.',
         foliage: 'Dark green, plain, pointed/red back.',
         vintage: '2018',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464094/african-violets/atws0renxlgpwcziz7wb.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464094/african-violets/atws0renxlgpwcziz7wb.jpg'
       }
     }),
     prisma.plant.create({
@@ -117,8 +115,7 @@ async function main() {
         blossom: 'Single lavender bell with darker veining.',
         foliage: 'Variegated light green and white, plain.',
         vintage: '2012',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464452/african-violets/sm1gxhpxvjblubfsktks.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464452/african-violets/sm1gxhpxvjblubfsktks.jpg'
       }
     }),
     prisma.plant.create({
@@ -133,8 +130,7 @@ async function main() {
         foliage: 'Dark green, quilted, heart-shaped.',
         altReg: 'Western 2016',
         vintage: '2016',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464816/african-violets/znpva73lu0hjptxlp2mn.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464816/african-violets/znpva73lu0hjptxlp2mn.jpg'
       }
     }),
     prisma.plant.create({
@@ -148,8 +144,7 @@ async function main() {
         blossom: 'Semidouble coral-pink star with yellow undertones.',
         foliage: 'Medium green, plain, serrated.',
         vintage: '2017',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769463863/african-violets/okdc73qohcuprd03fql9.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769463863/african-violets/okdc73qohcuprd03fql9.jpg'
       }
     }),
     prisma.plant.create({
@@ -163,8 +158,7 @@ async function main() {
         blossom: 'Double dark blue-purple star with pink fantasy.',
         foliage: 'Dark green, plain, quilted/red back.',
         vintage: '2016',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464568/african-violets/ahlwfwxkkrtwadfk1cex.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464568/african-violets/ahlwfwxkkrtwadfk1cex.jpg'
       }
     }),
     prisma.plant.create({
@@ -178,8 +172,7 @@ async function main() {
         blossom: 'Single pink star.',
         foliage: 'Medium green, plain, girl.',
         vintage: '2019',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769465051/african-violets/u80icq68mymia4z2hyia.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769465051/african-violets/u80icq68mymia4z2hyia.jpg'
       }
     }),
     prisma.plant.create({
@@ -193,8 +186,7 @@ async function main() {
         blossom: 'Semidouble light blue frilled star.',
         foliage: 'Medium green, plain, quilted.',
         vintage: '2014',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769465184/african-violets/tse9x7qtzjuzyapxkvdg.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769465184/african-violets/tse9x7qtzjuzyapxkvdg.jpg'
       }
     }),
     prisma.plant.create({
@@ -208,8 +200,7 @@ async function main() {
         blossom: 'Double deep red ruffled star with darker center.',
         foliage: 'Dark green, plain, pointed.',
         vintage: '2020',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464247/african-violets/tnwvnuzlwckbndwtpjzd.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464247/african-violets/tnwvnuzlwckbndwtpjzd.jpg'
       }
     }),
     prisma.plant.create({
@@ -223,8 +214,7 @@ async function main() {
         blossom: 'Double white frilled star with light pink blush.',
         foliage: 'Variegated medium green and white, plain, quilted.',
         vintage: '2011',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464938/african-violets/sm8g5iyzdruaitjx4dix.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464938/african-violets/sm8g5iyzdruaitjx4dix.jpg'
       }
     }),
     prisma.plant.create({
@@ -238,8 +228,7 @@ async function main() {
         blossom: 'Semidouble plum-purple star with white edge.',
         foliage: 'Medium green, plain, heart-shaped.',
         vintage: '2015',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464721/african-violets/tqgjru6qtxfvzf51gsoq.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464721/african-violets/tqgjru6qtxfvzf51gsoq.jpg'
       }
     }),
     prisma.plant.create({
@@ -253,8 +242,7 @@ async function main() {
         blossom: 'Double medium blue ruffled star with darker blue fantasy.',
         foliage: 'Medium green, quilted, plain.',
         vintage: '2018',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769463920/african-violets/zeisnrcbscdlpaksxnkx.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769463920/african-violets/zeisnrcbscdlpaksxnkx.jpg'
       }
     }),
     prisma.plant.create({
@@ -268,8 +256,7 @@ async function main() {
         blossom: 'Single-semidouble light pink star with yellow center.',
         foliage: 'Light green, plain, quilted.',
         vintage: '2017',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464677/african-violets/ih0pxhl79ygivjlvq711.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464677/african-violets/ih0pxhl79ygivjlvq711.jpg'
       }
     }),
     prisma.plant.create({
@@ -283,8 +270,7 @@ async function main() {
         blossom: 'Semidouble pink and white chimera.',
         foliage: 'Medium green, plain, pointed.',
         vintage: '2017',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464876/african-violets/qiksavmu7aeoij8npr2m.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464876/african-violets/qiksavmu7aeoij8npr2m.jpg'
       }
     }),
     prisma.plant.create({
@@ -298,8 +284,7 @@ async function main() {
         blossom: 'Double dark blue star with white fantasy.',
         foliage: 'Dark green, quilted, plain/red back.',
         vintage: '2015',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464993/african-violets/erzegl8uw8n2igtengm6.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464993/african-violets/erzegl8uw8n2igtengm6.jpg'
       }
     }),
     prisma.plant.create({
@@ -310,8 +295,7 @@ async function main() {
         habit: habitMap['3'],
         blossom: 'Single white star with pink blush.',
         foliage: 'Medium green, plain, girl.',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464501/african-violets/d7jwn749idgspawnuj3n.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464501/african-violets/d7jwn749idgspawnuj3n.jpg'
       }
     }),
     prisma.plant.create({
@@ -325,8 +309,7 @@ async function main() {
         blossom: 'Semidouble violet-purple star.',
         foliage: 'Variegated dark green and pink, plain.',
         vintage: '2019',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769465146/african-violets/v0p7kjrzunyn6phpfxdp.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769465146/african-violets/v0p7kjrzunyn6phpfxdp.jpg'
       }
     }),
     prisma.plant.create({
@@ -340,8 +323,7 @@ async function main() {
         blossom: 'Double peach-pink star with cream edge.',
         foliage: 'Medium green, plain, quilted.',
         vintage: '2016',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464624/african-violets/wb2tswzi3ty9huhyfhol.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464624/african-violets/wb2tswzi3ty9huhyfhol.jpg'
       }
     }),
     prisma.plant.create({
@@ -355,8 +337,7 @@ async function main() {
         blossom: 'Semidouble white star with green ruffled edge.',
         foliage: 'Variegated medium green and white, quilted, serrated.',
         vintage: '2018',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464409/african-violets/udgqd9a4qwkhrlpxahx4.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769464409/african-violets/udgqd9a4qwkhrlpxahx4.jpg'
       }
     }),
     prisma.plant.create({
@@ -371,8 +352,7 @@ async function main() {
         foliage: 'Light green, plain, pointed.',
         altReg: 'TX 2016',
         vintage: '2016',
-        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769465234/african-violets/th3xictcigfuxest0muj.jpg',
-        isInCatalog: true
+        imageUrl: 'https://res.cloudinary.com/dq90ip4xn/image/upload/v1769465234/african-violets/th3xictcigfuxest0muj.jpg'
       }
     })
   ]);
