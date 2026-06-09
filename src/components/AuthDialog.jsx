@@ -30,7 +30,7 @@ import {
 } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 
-export default function AuthDialog({ open, onClose }) {
+export default function AuthDialog({ open, onClose, initialBanner = '' }) {
   // Tab state: 0 = Login, 1 = Register
   const [tab, setTab] = useState(0);
 
@@ -151,6 +151,13 @@ export default function AuthDialog({ open, onClose }) {
 
       <form onSubmit={handleSubmit}>
         <DialogContent>
+          {/* Initial banner — e.g., success message from password reset flow */}
+          {initialBanner && !error && (
+            <Alert severity="success" sx={{ mb: 2 }}>
+              {initialBanner}
+            </Alert>
+          )}
+
           {/* Error Alert */}
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>

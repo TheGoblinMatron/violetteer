@@ -5,7 +5,7 @@
  * - Login button when not authenticated
  * - User avatar menu when authenticated
  */
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Container,
   Box,
@@ -36,7 +36,24 @@ export default function Layout({ children, lists = [], onCreateList }) {
   const { user, isAuthenticated, isAdmin, loading, signOut } = useAuth();
   const { profile } = useProfile();
   const [showAuthDialog, setShowAuthDialog] = useState(false);
+  const [authDialogBanner, setAuthDialogBanner] = useState('');
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
+
+  // Detect post-reset arrival: ?passwordReset=success means the user just
+  // finished a reset flow. Auto-open the sign-in dialog with a banner so
+  // they don't have to hunt for the sign-in button.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('passwordReset') === 'success' && !isAuthenticated) {
+      setAuthDialogBanner('Password reset! Sign in with your new password.');
+      setShowAuthDialog(true);
+      // Clear the param so a refresh doesn't re-open the dialog
+      params.delete('passwordReset');
+      const newSearch = params.toString();
+      navigate({ pathname: location.pathname, search: newSearch ? `?${newSearch}` : '' }, { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search, isAuthenticated]);
 
   const handleLogoClick = () => {
     navigate('/');
@@ -253,7 +270,11 @@ export default function Layout({ children, lists = [], onCreateList }) {
       {/* Auth Dialog (Login/Register) */}
       <AuthDialog
         open={showAuthDialog}
-        onClose={() => setShowAuthDialog(false)}
+        onClose={() => {
+          setShowAuthDialog(false);
+          setAuthDialogBanner('');
+        }}
+        initialBanner={authDialogBanner}
       />
     </>
   );
