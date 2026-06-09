@@ -24,13 +24,17 @@ export const authClient = createAuthClient({
   baseURL: 'http://localhost:3001',
 });
 
-// Destructure the methods we'll use throughout the app
+// Destructure the methods we'll use throughout the app.
+// Names map to better-auth's endpoints via toKebabCase:
+//   requestPasswordReset -> POST /api/auth/request-password-reset
+//   resetPassword        -> POST /api/auth/reset-password
+//   sendVerificationEmail-> POST /api/auth/send-verification-email
 export const {
-  signIn,             // signIn.email({ email, password })
-  signUp,             // signUp.email({ email, password, name })
-  signOut,            // signOut()
-  useSession,         // React hook: const { data: session, isPending } = useSession()
-  forgetPassword,     // forgetPassword({ email, redirectTo })
-  resetPassword,      // resetPassword({ newPassword, token })
-  sendVerificationEmail, // sendVerificationEmail({ email, callbackURL })
+  signIn,                 // signIn.email({ email, password })
+  signUp,                 // signUp.email({ email, password, name })
+  signOut,                // signOut()
+  useSession,             // React hook: const { data: session, isPending } = useSession()
+  requestPasswordReset,   // requestPasswordReset({ email, redirectTo })
+  resetPassword,          // resetPassword({ newPassword, token })
+  sendVerificationEmail,  // sendVerificationEmail({ email, callbackURL })
 } = authClient;

@@ -19,7 +19,7 @@ import {
   CircularProgress,
   Link,
 } from '@mui/material';
-import { forgetPassword } from '../lib/auth-client';
+import { requestPasswordReset } from '../lib/auth-client';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -34,7 +34,7 @@ export default function ForgotPasswordPage() {
     // success even for non-existent emails (good!), but if there's a
     // genuine network error, the UX still claims "check your email"
     // so we don't help attackers distinguish real vs fake addresses.
-    await forgetPassword({
+    await requestPasswordReset({
       email,
       redirectTo: `${window.location.origin}/reset-password`,
     }).catch((err) => {

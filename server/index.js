@@ -69,9 +69,10 @@ app.use(express.json());
  * Rate-limit /api/auth/* to slow brute-force attempts at sign-in,
  * password-reset email enumeration, and verification-resend spam.
  *
- * 30 requests / 15 min / IP is generous enough for legitimate users
- * (a signup flow only touches /sign-up, /verify, /get-session) but
- * tight enough that brute force is unworkable.
+ * 100 req / 15 min / IP is loose enough for active testing AND for
+ * the frontend's get-session polling, while still hard-capping any
+ * brute-force attempt at a reasonable rate. We can tighten with a
+ * per-endpoint limit later (stricter on /sign-in than /get-session).
  *
  * trustProxy is read from app.set('trust proxy', ...) — currently
  * unset, so the limiter uses req.ip which is the direct connection.
@@ -80,7 +81,7 @@ app.use(express.json());
  */
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
+  max: 100,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again in a few minutes.' },
