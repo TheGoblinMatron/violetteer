@@ -13,6 +13,7 @@
  */
 
 import { auth } from '../lib/auth.js';
+import { canCurateArchive } from '../lib/auth-helpers.js';
 
 /**
  * requireAuth - Middleware that blocks unauthenticated requests
@@ -94,7 +95,7 @@ export const requireAdmin = async (req, res, next) => {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    if (!session.user.isAdmin) {
+    if (!canCurateArchive(session.user)) {
       return res.status(403).json({ error: 'Admin access required' });
     }
 

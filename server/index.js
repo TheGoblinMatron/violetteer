@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client';
 import { toNodeHandler } from 'better-auth/node';
 import { auth } from './lib/auth.js';
 import { requireAuth, optionalAuth, requireAdmin } from './middleware/auth.js';
+import { canDeletePhoto, canCurateArchive, canSetCoverPhoto } from './lib/auth-helpers.js';
 import { generateDescription } from './lib/plantDescription.js';
 import { uploadAvatar, uploadImageVersions, deleteImage } from './lib/spaces.js';
 import { randomUUID } from 'crypto';
@@ -524,14 +525,8 @@ app.get('/api/plants', async (req, res) => {
       });
     }
 
-    // Has photos filter - must have imageUrl OR non-empty featuredPhotos
     if (hasPhotos) {
-      andConditions.push({
-        OR: [
-          { imageUrl: { not: null } },
-          { NOT: { featuredPhotos: { isEmpty: true } } },
-        ],
-      });
+      andConditions.push({ primaryPhotoId: { not: null } });
     }
 
     const where = {
@@ -556,6 +551,11 @@ app.get('/api/plants', async (req, res) => {
         orderBy,
         skip,
         take: limit,
+        include: {
+          primaryPhoto: {
+            select: { id: true, imageUrl: true, thumbnailUrl: true }
+          }
+        }
       }),
       prisma.plant.count({ where }),
     ]);
@@ -580,6 +580,11 @@ app.get('/api/plants/all', async (req, res) => {
   try {
     const plants = await prisma.plant.findMany({
       orderBy: { name: 'asc' },
+      include: {
+        primaryPhoto: {
+          select: { id: true, imageUrl: true, thumbnailUrl: true }
+        }
+      }
     });
     res.json(plants);
   } catch (error) {
@@ -591,7 +596,7 @@ app.get('/api/plants/all', async (req, res) => {
  * GET single plant with photos, reviews, and community stats
  *
  * Returns the plant along with:
- * - userPhotos: Photos uploaded by users
+ * - photos: All photos for this plant
  * - reviews: User reviews
  * - wishlistCount: How many users have this in their Wishlist (calculated)
  * - collectionCount: Already on the plant from denormalized field
@@ -605,17 +610,31 @@ app.get('/api/plants/:id', async (req, res) => {
       prisma.plant.findUnique({
         where: { id: plantId },
         include: {
-          userPhotos: {
-            orderBy: { uploadedAt: 'desc' }
-          },
-          reviews: {
-            orderBy: { createdAt: 'desc' }
-          },
-          plantTags: {
-            include: {
-              tag: true
+          photos: {
+            orderBy: { uploadedAt: 'desc' },
+            select: {
+              id: true,
+              userId: true,
+              imageUrl: true,
+              thumbnailUrl: true,
+              caption: true,
+              uploadedAt: true,
+              source: true,
+              photographerName: true,
+              attributionNote: true,
             }
-          }
+          },
+          primaryPhoto: {
+            select: {
+              id: true,
+              imageUrl: true,
+              thumbnailUrl: true,
+              source: true,
+              photographerName: true,
+            }
+          },
+          reviews: { orderBy: { createdAt: 'desc' } },
+          plantTags: { include: { tag: true } }
         }
       }),
       // Count how many users have this in their Wishlist
@@ -670,8 +689,7 @@ app.post('/api/plants/:id/contribute', async (req, res) => {
 // UPDATE plant in catalog
 app.put('/api/plants/:id', async (req, res) => {
   try {
-    // Strip out description from request - we'll regenerate it
-    const { description, ...updateData } = req.body;
+    const { description, imageUrl, thumbnailUrl, featuredPhotos, ...updateData } = req.body;
 
     // Fetch current plant data to merge with updates for description generation
     const currentPlant = await prisma.plant.findUnique({
@@ -728,7 +746,7 @@ app.get('/api/lists', requireAuth, async (req, res) => {
         listPlants: {
           include: {
             userPlant: {
-              include: { catalogPlant: true }
+              include: { catalogPlant: { include: { primaryPhoto: { select: { id: true, imageUrl: true, thumbnailUrl: true } } } } }
             }
           }
         }
@@ -760,7 +778,7 @@ app.get('/api/lists/:id', requireAuth, async (req, res) => {
         listPlants: {
           include: {
             userPlant: {
-              include: { catalogPlant: true }
+              include: { catalogPlant: { include: { primaryPhoto: { select: { id: true, imageUrl: true, thumbnailUrl: true } } } } }
             }
           }
         }
@@ -988,7 +1006,7 @@ app.get('/api/user-plants', requireAuth, async (req, res) => {
   try {
     const userPlants = await prisma.userPlant.findMany({
       where: { userId: req.user.id },
-      include: { catalogPlant: true },
+      include: { catalogPlant: { include: { primaryPhoto: { select: { id: true, imageUrl: true, thumbnailUrl: true } } } } },
       orderBy: { createdAt: 'asc' }
     });
     res.json(userPlants);
@@ -1009,7 +1027,7 @@ app.post('/api/user-plants', requireAuth, async (req, res) => {
     if (catalogPlantId) {
       const existing = await prisma.userPlant.findFirst({
         where: { userId: req.user.id, catalogPlantId: parseInt(catalogPlantId) },
-        include: { catalogPlant: true }
+        include: { catalogPlant: { include: { primaryPhoto: { select: { id: true, imageUrl: true, thumbnailUrl: true } } } } }
       });
       if (existing) return res.json(existing);
     }
@@ -1021,7 +1039,7 @@ app.post('/api/user-plants', requireAuth, async (req, res) => {
         customName, customHybridizer, customBlossom, customFoliage, customHabit,
         customNotes, dateAcquired, sourceNotes
       },
-      include: { catalogPlant: true }
+      include: { catalogPlant: { include: { primaryPhoto: { select: { id: true, imageUrl: true, thumbnailUrl: true } } } } }
     });
 
     res.json(userPlant);
@@ -1046,7 +1064,7 @@ app.put('/api/user-plants/:id', requireAuth, async (req, res) => {
     const updated = await prisma.userPlant.update({
       where: { id: userPlantId },
       data: { customName, customHybridizer, customBlossom, customFoliage, customHabit, customNotes, dateAcquired, sourceNotes },
-      include: { catalogPlant: true }
+      include: { catalogPlant: { include: { primaryPhoto: { select: { id: true, imageUrl: true, thumbnailUrl: true } } } } }
     });
     res.json(updated);
   } catch (error) {
@@ -1122,6 +1140,13 @@ app.post('/api/plants/:plantId/photos/upload', requireAuth, upload.single('photo
       return res.status(400).json({ error: 'No image file provided' });
     }
 
+    // Defense in depth: client also gates submit, but trust nothing from client.
+    // Boolean parsed from multipart form data may arrive as string 'true'.
+    const affirmed = req.body.affirmedOwnWork === true || req.body.affirmedOwnWork === 'true';
+    if (!affirmed) {
+      return res.status(400).json({ error: 'You must affirm this is your own photo to upload.' });
+    }
+
     // Check if DO Spaces is configured
     if (!process.env.DO_SPACES_BUCKET) {
       return res.status(500).json({ error: 'Image upload not configured' });
@@ -1144,14 +1169,26 @@ app.post('/api/plants/:plantId/photos/upload', requireAuth, upload.single('photo
     const urls = await uploadImageVersions(req.file.buffer, baseKey);
 
     // Create photo record
-    const photo = await prisma.plantPhoto.create({
-      data: {
-        plantId,
-        userId: req.user.id,
-        imageUrl: urls.main,
-        thumbnailUrl: urls.thumb,
-        caption: req.body.caption || null,
+    const photo = await prisma.$transaction(async (tx) => {
+      const created = await tx.plantPhoto.create({
+        data: {
+          plantId,
+          userId: req.user.id,
+          imageUrl: urls.main,
+          thumbnailUrl: urls.thumb,
+          caption: req.body.caption || null,
+          source: 'USER',
+        }
+      });
+      // If the plant has no primary yet, point it at this new photo so the
+      // catalog grid has something to render.
+      if (plant.primaryPhotoId === null) {
+        await tx.plant.update({
+          where: { id: plantId },
+          data: { primaryPhotoId: created.id },
+        });
       }
+      return created;
     });
 
     res.json(photo);
@@ -1161,12 +1198,117 @@ app.post('/api/plants/:plantId/photos/upload', requireAuth, upload.single('photo
   }
 });
 
-// DELETE photo
-app.delete('/api/photos/:id', async (req, res) => {
+/**
+ * UPLOAD an archive photo (admin only).
+ *
+ * Used for historical / permissioned photos where the photographer is not
+ * the uploader. Requires photographerName + attributionNote (free text).
+ */
+app.post('/api/admin/photos/archive', requireAdmin, upload.single('photo'), async (req, res) => {
   try {
-    await prisma.plantPhoto.delete({
-      where: { id: parseInt(req.params.id) }
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+    const { plantId, photographerName, attributionNote, caption } = req.body;
+    if (!plantId) return res.status(400).json({ error: 'plantId is required' });
+    if (!photographerName || !photographerName.trim()) {
+      return res.status(400).json({ error: 'photographerName is required for archive uploads' });
+    }
+    if (!attributionNote || !attributionNote.trim()) {
+      return res.status(400).json({ error: 'attributionNote is required for archive uploads' });
+    }
+
+    if (!process.env.DO_SPACES_BUCKET) {
+      return res.status(500).json({ error: 'Image upload not configured' });
+    }
+
+    const plantIdInt = parseInt(plantId);
+    const plant = await prisma.plant.findUnique({ where: { id: plantIdInt } });
+    if (!plant) return res.status(404).json({ error: 'Plant not found' });
+
+    const photoId = randomUUID();
+    const baseKey = `archive-photos/${plantIdInt}/${photoId}`;
+    const urls = await uploadImageVersions(req.file.buffer, baseKey);
+
+    const photo = await prisma.$transaction(async (tx) => {
+      const created = await tx.plantPhoto.create({
+        data: {
+          plantId: plantIdInt,
+          userId: req.user.id,  // uploader provenance, NOT photographer credit
+          imageUrl: urls.main,
+          thumbnailUrl: urls.thumb,
+          caption: caption || null,
+          source: 'ARCHIVE',
+          photographerName: photographerName.trim(),
+          attributionNote: attributionNote.trim(),
+        }
+      });
+      if (plant.primaryPhotoId === null) {
+        await tx.plant.update({
+          where: { id: plantIdInt },
+          data: { primaryPhotoId: created.id },
+        });
+      }
+      return created;
     });
+
+    res.json(photo);
+  } catch (error) {
+    console.error('Archive photo upload error:', error);
+    res.status(500).json({ error: 'Failed to upload archive photo' });
+  }
+});
+
+/**
+ * Set the primary (cover) photo for a plant.
+ * Body: { photoId }
+ */
+app.patch('/api/plants/:id/primary-photo', requireAuth, async (req, res) => {
+  try {
+    const plantId = parseInt(req.params.id);
+    const { photoId } = req.body;
+    if (!photoId) return res.status(400).json({ error: 'photoId is required' });
+
+    const plant = await prisma.plant.findUnique({ where: { id: plantId } });
+    if (!plant) return res.status(404).json({ error: 'Plant not found' });
+
+    if (!canSetCoverPhoto(req.user, plant)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    // Confirm the photo belongs to this plant
+    const photo = await prisma.plantPhoto.findUnique({
+      where: { id: parseInt(photoId) },
+      select: { id: true, plantId: true },
+    });
+    if (!photo || photo.plantId !== plantId) {
+      return res.status(400).json({ error: 'Photo does not belong to this plant' });
+    }
+
+    const updated = await prisma.plant.update({
+      where: { id: plantId },
+      data: { primaryPhotoId: parseInt(photoId) },
+      select: { id: true, primaryPhotoId: true },
+    });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE photo
+app.delete('/api/photos/:id', requireAuth, async (req, res) => {
+  try {
+    const photoId = parseInt(req.params.id);
+    const photo = await prisma.plantPhoto.findUnique({
+      where: { id: photoId },
+      select: { id: true, userId: true, source: true },
+    });
+    if (!photo) return res.status(404).json({ error: 'Photo not found' });
+    if (!canDeletePhoto(req.user, photo)) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    await prisma.plantPhoto.delete({ where: { id: photoId } });
     res.json({ message: 'Photo deleted' });
   } catch (error) {
     res.status(500).json({ error: error.message });

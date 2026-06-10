@@ -12,7 +12,10 @@ import {
   Typography,
   Accordion,
   AccordionSummary,
-  AccordionDetails
+  AccordionDetails,
+  Checkbox,
+  FormControlLabel,
+  Link
 } from '@mui/material';
 import { ExpandMore } from '@mui/icons-material';
 
@@ -43,11 +46,12 @@ export default function PlantFormDialog({ open, plant, onClose, onSubmit, onImag
     altReg: '',
     vintage: '',
     engTrans: '',
-    alias: '',
-    imageUrl: ''
+    alias: ''
   });
 
   const [uploading, setUploading] = useState(false);
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState('');
+  const [affirmedOwnWork, setAffirmedOwnWork] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -63,9 +67,10 @@ export default function PlantFormDialog({ open, plant, onClose, onSubmit, onImag
         altReg: plant.altReg || '',
         vintage: plant.vintage || '',
         engTrans: plant.engTrans || '',
-        alias: plant.alias || '',
-        imageUrl: plant.imageUrl || ''
+        alias: plant.alias || ''
       });
+      setAffirmedOwnWork(false);
+      setUploadedPhotoUrl('');
     } else {
       setFormData({
         name: '',
@@ -78,9 +83,10 @@ export default function PlantFormDialog({ open, plant, onClose, onSubmit, onImag
         altReg: '',
         vintage: '',
         engTrans: '',
-        alias: '',
-        imageUrl: ''
+        alias: ''
       });
+      setAffirmedOwnWork(false);
+      setUploadedPhotoUrl('');
     }
   }, [plant, open]);
 
@@ -103,6 +109,7 @@ export default function PlantFormDialog({ open, plant, onClose, onSubmit, onImag
     try {
       const uploadData = new FormData();
       uploadData.append('photo', file);
+      uploadData.append('affirmedOwnWork', 'true');
 
       const response = await fetch(`http://localhost:3001/api/plants/${plant.id}/photos/upload`, {
         method: 'POST',
@@ -115,9 +122,7 @@ export default function PlantFormDialog({ open, plant, onClose, onSubmit, onImag
       }
 
       const result = await response.json();
-      // Use the main image URL from the upload
-      setFormData(prev => ({ ...prev, imageUrl: result.imageUrl }));
-      // Notify parent to refresh plant data
+      setUploadedPhotoUrl(result.thumbnailUrl || result.imageUrl);
       if (onImageUploaded) {
         onImageUploaded(result);
       }
@@ -156,9 +161,10 @@ export default function PlantFormDialog({ open, plant, onClose, onSubmit, onImag
       altReg: '',
       vintage: '',
       engTrans: '',
-      alias: '',
-      imageUrl: ''
+      alias: ''
     });
+    setAffirmedOwnWork(false);
+    setUploadedPhotoUrl('');
   };
 
   return (
@@ -297,7 +303,7 @@ export default function PlantFormDialog({ open, plant, onClose, onSubmit, onImag
               <Button
                 variant="outlined"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={uploading || !isEditing}
+                disabled={uploading || !isEditing || !affirmedOwnWork}
               >
                 {uploading ? 'Uploading...' : 'Upload Photo'}
               </Button>
@@ -306,11 +312,11 @@ export default function PlantFormDialog({ open, plant, onClose, onSubmit, onImag
                   Save first to enable photo upload
                 </Typography>
               )}
-              {formData.imageUrl && (
+              {uploadedPhotoUrl && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Box
                     component="img"
-                    src={formData.imageUrl}
+                    src={uploadedPhotoUrl}
                     alt="Preview"
                     sx={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 1 }}
                   />
@@ -320,18 +326,21 @@ export default function PlantFormDialog({ open, plant, onClose, onSubmit, onImag
                 </Box>
               )}
             </Box>
-            <Typography variant="caption" color="text.secondary">
-              Or paste an image URL below
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={affirmedOwnWork}
+                  onChange={(e) => setAffirmedOwnWork(e.target.checked)}
+                />
+              }
+              label="I took this photo myself and I'm granting Violetteer permission to display it on this site."
+              sx={{ alignItems: 'flex-start', mt: 1 }}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
+              Didn't take this photo yourself? We accept historical and permissioned photos through
+              our curators. Email <Link href="mailto:hello@violetteer.com">hello@violetteer.com</Link> to contribute.
             </Typography>
           </Box>
-
-          <TextField
-            label="Image URL"
-            value={formData.imageUrl}
-            onChange={handleChange('imageUrl')}
-            fullWidth
-            helperText="Alternative: Paste a link to a photo"
-          />
         </Box>
       </DialogContent>
       <DialogActions>

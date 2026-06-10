@@ -48,7 +48,7 @@ Add photographer attribution to Violetteer's photo system and introduce an admin
 │    1. Move Plant.imageUrl / featuredPhotos[] → PlantPhoto    │
 │       rows with source='AVSA_SEEDED'                         │
 │    2. Set Plant.primaryPhotoId from the old imageUrl row     │
-│    3. Backfill 3 known credits from avml.db (filename match) │
+│    3. Backfill ~10K photographer credits from avml.db (URL match)│
 │    4. Drop the deprecated columns (separate Prisma migration)│
 └──────────────────────────────────────────────────────────────┘
 ┌─ Server layer ───────────────────────────────────────────────┐
@@ -182,11 +182,13 @@ Step 2 — Data script: scripts/migrate-photos-to-plant-photo.js
        - thumbnailUrl = Plant.thumbnailUrl (only on the row from old imageUrl)
     b. Set Plant.primaryPhotoId to the row created from old imageUrl
     c. Backfill credits from avml.db (path passed as CLI arg):
-       - Read credits table (PhotoID CHAR(7), Name CHAR(40))
-       - For each (PhotoID, Name): find PlantPhoto row whose imageUrl
-         basename matches PhotoID + '.jpg'
+       - Read credits table (PhotoID CHAR(7), Name CHAR(40); ~10,343 rows)
+       - For each (PhotoID, Name): parse PhotoID into <RecNum><letter> and
+         find PlantPhoto rows whose imageUrl contains "/<RecNum>-<letter>-main"
+         (matches the catalog URL pattern .../catalog/<RecNum>-<letter>-main.webp)
        - Set photographerName = Name on the match
-       - Unmatched credits are logged but don't fail (sparse table)
+       - Unmatched credits are logged but don't fail (some credits refer to
+         photos no longer in the catalog)
 
   Idempotent: skips plants with primaryPhotoId already set.
   --dry-run flag: prints planned writes without executing.
@@ -442,5 +444,5 @@ When CI/CD lands per the beta-readiness scorecard, most of these become Vitest +
 - Memory: `reference_local_db_baseline.md` — DB baseline + backup conventions
 - Memory: `feedback_npm_install_workflow.md` — install discipline
 - Schema: `prisma/schema.prisma`
-- Source data: `~/Documents/My - FirstClass/avml.db` (`credits` table; 3 rows)
-- Source data: `~/Documents/My - FirstClass/photos/` (10,223 jpgs)
+- Source data: `~/Documents/FirstClass/avml.db` (`credits` table; 10,343 rows, ~588 unique photographers)
+- Source data: `~/Documents/FirstClass/photos/` (10,223 jpgs)

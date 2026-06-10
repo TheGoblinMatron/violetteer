@@ -182,7 +182,7 @@ export default function ListView({ list, allPlants, onRemoveFromList, onUpdateUs
 
       <Grid container spacing={2}>
         {list.listPlants.map((listPlant) => {
-          const getPlantDisplay = (lp) => lp.userPlant.catalogPlant ?? { name: lp.userPlant.customName, hybridizer: lp.userPlant.customHybridizer, habit: lp.userPlant.customHabit, imageUrl: null, thumbnailUrl: null };
+          const getPlantDisplay = (lp) => lp.userPlant.catalogPlant ?? { name: lp.userPlant.customName, hybridizer: lp.userPlant.customHybridizer, habit: lp.userPlant.customHabit, primaryPhoto: null };
           const plantDisplay = getPlantDisplay(listPlant);
           const customNotes = listPlant.userPlant?.customNotes;
           return (
@@ -277,7 +277,7 @@ export default function ListView({ list, allPlants, onRemoveFromList, onUpdateUs
       <PrintLabelsDialog
         open={showPrintDialog}
         onClose={() => setShowPrintDialog(false)}
-        plants={list.listPlants.map(lp => lp.userPlant.catalogPlant ?? { name: lp.userPlant.customName, hybridizer: lp.userPlant.customHybridizer, habit: lp.userPlant.customHabit, imageUrl: null, thumbnailUrl: null })}
+        plants={list.listPlants.map(lp => lp.userPlant.catalogPlant ?? { name: lp.userPlant.customName, hybridizer: lp.userPlant.customHybridizer, habit: lp.userPlant.customHabit, primaryPhoto: null })}
       />
     </Container>
   );

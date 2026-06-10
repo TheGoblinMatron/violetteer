@@ -19,6 +19,7 @@ import {
   Chip,
   TextField,
   Grid,
+  Tooltip,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -31,10 +32,13 @@ import {
   LocalFlorist,
   Favorite,
   Collections,
+  CameraAlt,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import PlantFormDialog from './PlantFormDialog';
 import CreateListDialog from './CreateListDialog';
+import ArchiveUploadDialog from './admin/ArchiveUploadDialog.jsx';
 
 export default function PlantDetail({
   plants,
@@ -55,6 +59,8 @@ export default function PlantDetail({
   const [editingNotes, setEditingNotes] = useState({});
   const [notesValues, setNotesValues] = useState({});
   const [plantDetails, setPlantDetails] = useState(null);
+  const { isAdmin } = useAuth();
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
 
   // Find basic plant from props (for initial render and fallback)
   const basePlant = plants.find((p) => p.id === parseInt(id));
@@ -188,37 +194,27 @@ export default function PlantDetail({
         <Grid container spacing={3} sx={{ flexWrap: { xs: 'wrap', md: 'nowrap' } }}>
           {/* Column 1: Photo Gallery */}
           <Grid item xs={12} md={4} sx={{ minWidth: 0 }}>
-            {/* Official Photos - stacked vertically */}
-            {plant.featuredPhotos?.length > 0 ? (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                {plant.featuredPhotos.map((url, index) => (
-                  <Box
-                    key={index}
-                    component="img"
-                    src={url}
-                    alt={`${plant.name} photo ${index + 1}`}
-                    sx={{
-                      width: '100%',
-                      height: 'auto',
-                      objectFit: 'cover',
-                      borderRadius: 1,
-                    }}
-                  />
-                ))}
+            {/* Primary photo (or fallback) */}
+            {plant.primaryPhoto ? (
+              <Box>
+                <Box
+                  component="img"
+                  src={plant.primaryPhoto.imageUrl}
+                  alt={plant.name}
+                  sx={{
+                    width: '100%',
+                    height: 'auto',
+                    maxHeight: 400,
+                    objectFit: 'cover',
+                    borderRadius: 1,
+                  }}
+                />
+                {plant.primaryPhoto.source !== 'USER' && plant.primaryPhoto.photographerName && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                    Photo by {plant.primaryPhoto.photographerName}
+                  </Typography>
+                )}
               </Box>
-            ) : plant.imageUrl ? (
-              <Box
-                component="img"
-                src={plant.imageUrl}
-                alt={plant.name}
-                sx={{
-                  width: '100%',
-                  height: 'auto',
-                  maxHeight: 400,
-                  objectFit: 'cover',
-                  borderRadius: 1,
-                }}
-              />
             ) : (
               <Box
                 sx={{
@@ -235,27 +231,64 @@ export default function PlantDetail({
               </Box>
             )}
 
-            {/* Thumbnail gallery for user photos (if any) */}
-            {plant.userPhotos?.length > 0 && (
+            {/* Thumbnail gallery — all non-primary photos */}
+            {plant.photos?.length > 1 && (
               <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                {plant.userPhotos.slice(0, 4).map((photo) => (
-                  <Box
-                    key={photo.id}
-                    component="img"
-                    src={photo.thumbnailUrl || photo.imageUrl}
-                    alt="User photo"
-                    sx={{
-                      width: 60,
-                      height: 60,
-                      objectFit: 'cover',
-                      borderRadius: 0.5,
-                      cursor: 'pointer',
-                      opacity: 0.8,
-                      '&:hover': { opacity: 1 },
-                    }}
-                  />
-                ))}
+                {plant.photos
+                  .filter((photo) => photo.id !== plant.primaryPhoto?.id)
+                  .slice(0, 4)
+                  .map((photo) => (
+                    <Box key={photo.id} sx={{ position: 'relative', display: 'inline-block' }}>
+                      <Box
+                        component="img"
+                        src={photo.thumbnailUrl || photo.imageUrl}
+                        alt={photo.attributionNote || 'Plant photo'}
+                        sx={{
+                          width: 60,
+                          height: 60,
+                          objectFit: 'cover',
+                          borderRadius: 0.5,
+                          opacity: 0.8,
+                          '&:hover': { opacity: 1 },
+                        }}
+                      />
+                      {photo.source !== 'USER' && photo.photographerName && (
+                        <Tooltip title={`Photo by ${photo.photographerName}`} arrow>
+                          <CameraAlt
+                            sx={{
+                              position: 'absolute',
+                              bottom: 2,
+                              right: 2,
+                              color: 'white',
+                              fontSize: 14,
+                              filter: 'drop-shadow(0 0 2px rgba(0,0,0,0.6))',
+                            }}
+                          />
+                        </Tooltip>
+                      )}
+                    </Box>
+                  ))}
               </Box>
+            )}
+
+            {/* Admin: Upload archive photo */}
+            {isAdmin && (
+              <>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setShowArchiveDialog(true)}
+                  sx={{ mt: 2 }}
+                >
+                  Upload archive photo
+                </Button>
+                <ArchiveUploadDialog
+                  open={showArchiveDialog}
+                  onClose={() => setShowArchiveDialog(false)}
+                  plantId={plant.id}
+                  onUploaded={() => fetchPlantDetails()}
+                />
+              </>
             )}
           </Grid>
 

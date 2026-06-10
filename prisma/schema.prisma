@@ -144,9 +144,6 @@ model Plant {
   engTrans              String?
   alias                 String?
   lineage               String?
-  imageUrl              String?   // Primary display image (main size, 1024px)
-  thumbnailUrl          String?   // Thumbnail for catalog grid (300x300)
-  featuredPhotos        String[]  // Up to 5 official catalog photos (main URLs)
   description           String?   // Pre-computed: "Name (regNum) MM/DD/YYYY (hybridizer) blossom. foliage. habit."
 
   // Catalog management
@@ -161,9 +158,14 @@ model Plant {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
+  // Denormalized FK to the catalog-grid primary thumbnail.
+  // Set on photo upload; nulls out if that photo is deleted.
+  primaryPhotoId        Int?        @unique
+  primaryPhoto          PlantPhoto? @relation("PlantPrimaryPhoto", fields: [primaryPhotoId], references: [id], onDelete: SetNull)
+
   // Relations
   userPlants            UserPlant[]   // Users who own an instance of this variety
-  userPhotos            PlantPhoto[]
+  photos                PlantPhoto[] @relation("PlantAllPhotos")
   reviews               Review[]
   plantTags             PlantTag[]
 }
@@ -244,15 +246,24 @@ model UserPlant {
 model PlantPhoto {
   id           Int      @id @default(autoincrement())
   plantId      Int
-  userId       String?  // Who uploaded it (optional - allows anonymous uploads)
-  imageUrl     String   // Main image (1024px)
-  thumbnailUrl String?  // Thumbnail (300x300) for gallery grids
+  userId       String?  // Who uploaded it (null for AVSA_SEEDED rows)
+  imageUrl     String
+  thumbnailUrl String?  // Required for primary photos (enforced by pipeline, not schema)
   caption      String?
   uploadedAt   DateTime @default(now())
 
-  // Relations
-  plant       Plant    @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  // Attribution + provenance
+  source           String   @default("USER")  // 'USER' | 'ARCHIVE' | 'AVSA_SEEDED'
+  photographerName String?
+  attributionNote  String?
+
+  plant       Plant    @relation("PlantAllPhotos", fields: [plantId], references: [id], onDelete: Cascade)
   user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Reverse side of the Plant.primaryPhoto FK
+  primaryFor  Plant?   @relation("PlantPrimaryPhoto")
+
+  @@index([plantId, source])
 }
 
 model Review {
